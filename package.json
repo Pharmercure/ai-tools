@@ -1,6 +1,6 @@
 {
 	"name": "ai-tools",
-	"description": "A template for building a React application with Vite, Hono, and Cloudflare Workers",
+	"description": "Monorepo di dashboard interne (React + Hono + D1) su un unico Worker Cloudflare",
 	"cloudflare": {
 		"label": "Vite React Template",
 		"products": [
@@ -40,7 +40,9 @@
 		"deploy": "wrangler deploy",
 		"dev": "vite",
 		"lint": "eslint .",
-		"preview": "npm run build && vite preview"
+		"preview": "npm run build && vite preview",
+		"db:migrate:local": "wrangler d1 migrations apply DB --local",
+		"db:migrate": "wrangler d1 migrations apply DB --remote"
 	},
 	"type": "module"
 }
