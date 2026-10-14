@@ -21,6 +21,7 @@
 		{
 			"binding": "DB",
 			"database_name": "ai-tools-db",
+			"database_id": "e8251965-9c0f-4ef9-9ca8-4508633a03cb",
 			"migrations_dir": "migrations"
 		}
 	]
