@@ -1,21 +1,7 @@
 // Tipi, formati e calcoli della dashboard (portati dalla vecchia pagina HTML).
 
-export type Dati = {
-	estratto: string;
-	ultimo_chiuso: string;
-	mesi: string[];
-	componenti: string[];
-	colonne_righe: string[];
-	/** [nome, città, provincia, gruppo, categoria] */
-	farmacie: [string, string, string, string, string][];
-	/** [nome, interno (0/1), città] */
-	fornitori: [string, number, string][];
-	/** [indice mese, indice farmacia, indice fornitore, ...numeri nell'ordine di colonne_righe] */
-	righe: number[][];
-	/** [indice mese, indice fornitore, costo] */
-	costo_senza_consegne: [number, number, number][];
-	non_attribuito: Record<string, number>;
-};
+export type { Dati } from "../api/types";
+import type { Dati } from "../api/types";
 
 export type Filtri = {
 	da: string;

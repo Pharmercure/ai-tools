@@ -146,9 +146,12 @@ function Cruscotto({ d }: { d: Dati }) {
 }
 
 function Pagina() {
-	const { data, isLoading, isError } = useGetDatiQuery();
+	const { data, error, isLoading } = useGetDatiQuery();
 	if (isLoading) return <p>Caricamento dei dati…</p>;
-	if (isError || !data) return <p>Impossibile caricare i dati del primo margine.</p>;
+	if (error && "status" in error && error.status === 404) {
+		return <p>I dati del primo margine non sono ancora stati generati. Si aggiornano ogni lunedì mattina.</p>;
+	}
+	if (error || !data) return <p>Impossibile caricare i dati del primo margine.</p>;
 	return <Cruscotto d={data} />;
 }
 
