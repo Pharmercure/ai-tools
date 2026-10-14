@@ -3,7 +3,9 @@
 	"name": "ai-tools",
 	"main": "./src/worker/index.ts",
 	"compatibility_date": "2025-10-08",
-	"compatibility_flags": ["nodejs_compat"],
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
 	"previews": {
 		"d1_databases": [
 			{
@@ -11,19 +13,36 @@
 				"database_name": "ai-tools-db",
 				"database_id": "e8251965-9c0f-4ef9-9ca8-4508633a03cb"
 			}
-		]
+		],
+		"observability": {
+			"logs": {
+				"enabled": true,
+				"head_sampling_rate": 1,
+				"invocation_logs": true,
+				"persist": true
+			},
+			"traces": {
+				"enabled": false,
+				"head_sampling_rate": 1,
+				"persist": true
+			},
+			"issue_detection": {
+				"enabled": false
+			}
+		},
 	},
 	"triggers": {
-		"crons": ["0 5 * * 1"]
-	},
-	"observability": {
-		"enabled": true
+		"crons": [
+			"0 5 * * 1"
+		]
 	},
 	"upload_source_maps": true,
 	"assets": {
 		"directory": "./dist/client",
 		"not_found_handling": "single-page-application",
-		"run_worker_first": ["/api/*"]
+		"run_worker_first": [
+			"/api/*"
+		]
 	},
 	"d1_databases": [
 		{
@@ -32,5 +51,24 @@
 			"database_id": "e8251965-9c0f-4ef9-9ca8-4508633a03cb",
 			"migrations_dir": "migrations"
 		}
-	]
+	],
+	"observability": {
+		"enabled": true,
+		"head_sampling_rate": 1,
+		"redact_query_string": false,
+		"logs": {
+			"enabled": true,
+			"head_sampling_rate": 1,
+			"invocation_logs": true,
+			"persist": true
+		},
+		"traces": {
+			"enabled": true,
+			"head_sampling_rate": 1,
+			"persist": true
+		},
+		"issues": {
+			"enabled": true
+		}
+	},
 }
