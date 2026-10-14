@@ -11,7 +11,7 @@ Leggi prima `architettura-dashboard` e `stack-frontend`.
 
 - Quale decisione o attività deve supportare la dashboard, e chi la usa? (definisci l'obiettivo)
 - Quali dati servono e da dove arrivano? Serve salvarne di nuovi (→ D1)?
-- Il nome breve: minuscolo, senza spazi, es. `ordini-fornitori`. Controlla che `src/apps/<nome>` non esista già.
+- Il nome breve: minuscolo, senza spazi, es. `supplier-orders` (sempre in inglese, vedi `architettura-dashboard`). Controlla che `src/apps/<nome>` non esista già.
 
 Proponi una prima versione piccola e funzionante, poi si migliora insieme: meglio tempo fisso e perimetro variabile.
 

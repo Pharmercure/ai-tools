@@ -10,7 +10,7 @@ Chi usa questo repo spesso non programma: spiega le cose in italiano semplice, l
 ## Mappa
 
 ```
-src/apps/<nome>/            ← UNA cartella per dashboard (nome minuscolo, trattini: es. "vendite-farmacie")
+src/apps/<nome>/            ← UNA cartella per dashboard (nome minuscolo, trattini: es. "pharmacy-sales")
   meta.ts               ← titolo e descrizione mostrati nell'indice
   web/index.tsx         ← frontend React, export default del componente (Provider Redux + Routes)
   web/store.ts          ← RTK Query: chiamate a /api/<nome> e store della dashboard
@@ -40,6 +40,7 @@ wrangler.json           ← config Cloudflare (condiviso)
 6. Nuovi pacchetti npm: solo se servono davvero e dopo aver avvisato l'utente (sono condivisi da tutti).
 7. Frontend: solo Emotion, React Router e Redux Toolkit/RTK Query, come da skill `stack-frontend`.
 8. Prima di dire "fatto" esegui `npm run build` e `npm run lint`.
+9. Nomenclatura in inglese: nomi di file, cartelle, dashboard, variabili, funzioni, tipi, tabelle e colonne D1, branch e messaggi di commit sono sempre in inglese (es. `supplier-orders`, `getSalesByMonth`). Solo i testi mostrati agli utenti (titoli, etichette, messaggi in pagina) restano in italiano.
 
 ## Sviluppo locale
 

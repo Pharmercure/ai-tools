@@ -7,9 +7,11 @@ description: Come usare il database Cloudflare D1 condiviso nelle dashboard (que
 
 Un solo database D1, binding `DB`, condiviso da tutte le dashboard. Nel codice backend è `c.env.DB` (Hono).
 
+I dati di Pharmercure in MongoDB non sono in D1: si leggono tramite il DB Proxy (skill `mongodb-proxy`).
+
 ## Regole
 
-- Ogni tabella inizia con il nome della dashboard: `ordini_fornitori_righe` per `ordini-fornitori` (trattini → `_`).
+- Ogni tabella inizia con il nome della dashboard: `supplier_orders_rows` per `supplier-orders` (trattini → `_`).
 - Mai toccare tabelle di altre dashboard.
 - Ogni modifica allo schema è un **nuovo** file in `migrations/`. Non modificare mai una migrazione già creata.
 - Query sempre parametrizzate con `.bind(...)`, mai concatenando input dell'utente nella stringa SQL.
