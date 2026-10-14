@@ -1,3 +1,4 @@
+import { Alert, Box, Button, CircularProgress } from "@mui/material";
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import { api, useGetStatusQuery, useRefreshMutation } from "./store";
@@ -42,20 +43,37 @@ export default function RefreshButton() {
 	}
 
 	let message: string | null = startError;
-	if (waiting) message = "Aggiornamento in corso, può richiedere un minuto…";
-	else if (gaveUp) message = "L'aggiornamento non ha dato esito entro 3 minuti: potrebbe essere stato interrotto. Controlla i log del Worker.";
-	else if (finished && status) {
-		if (status.status === "ok") message = "Dati aggiornati.";
-		else if (status.status === "rejected") message = `Aggiornamento scartato dai controlli: ${(status.log.problems ?? []).join("; ")}`;
-		else message = `Aggiornamento fallito: ${status.log.error ?? "errore sconosciuto"}`;
+	let severity: "info" | "success" | "warning" | "error" = "error";
+	if (waiting) {
+		message = "Aggiornamento in corso, può richiedere un minuto…";
+		severity = "info";
+	} else if (gaveUp) {
+		message = "L'aggiornamento non ha dato esito entro 3 minuti: potrebbe essere stato interrotto. Controlla i log del Worker.";
+		severity = "warning";
+	} else if (finished && status) {
+		if (status.status === "ok") {
+			message = "Dati aggiornati.";
+			severity = "success";
+		} else if (status.status === "rejected") {
+			message = `Aggiornamento scartato dai controlli: ${(status.log.problems ?? []).join("; ")}`;
+			severity = "warning";
+		} else {
+			message = `Aggiornamento fallito: ${status.log.error ?? "errore sconosciuto"}`;
+		}
 	}
 
 	return (
-		<span css={{ display: "inline-flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-			<button type="button" disabled={isStarting || waiting} onClick={start}>
+		<Box sx={{ display: "inline-flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
+			<Button
+				variant="contained"
+				size="small"
+				disabled={isStarting || waiting}
+				onClick={start}
+				startIcon={waiting ? <CircularProgress size={14} color="inherit" /> : undefined}
+			>
 				Aggiorna dati
-			</button>
-			{message && <span role="status" css={{ fontSize: 13 }}>{message}</span>}
-		</span>
+			</Button>
+			{message && <Alert severity={severity} role="status" sx={{ py: 0, maxWidth: 560 }}>{message}</Alert>}
+		</Box>
 	);
 }

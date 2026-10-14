@@ -15,6 +15,16 @@ Usa **solo** queste librerie per questi compiti. Non aggiungere alternative (sty
 
 Per ogni esempio completo guarda `src/apps/esempio` e `src/apps/demo-vendite`.
 
+## Componenti UI: MUI
+
+`@mui/material` (usa Emotion, già installato) è il kit di componenti della shell e delle dashboard che lo vogliono. Le dashboard esistenti con HTML semplice (`esempio`, `demo-vendite`) continuano a funzionare. Per ora lo usa `primo-margine`.
+
+- **Il tema è della shell** (`src/shell/theme.ts`, applicato in `src/shell/main.tsx`): le dashboard non creano un proprio `ThemeProvider` né usano `CssBaseline`. Lo sfondo e il font della pagina li imposta la shell. Chiaro e scuro seguono il sistema.
+- La shell fornisce intestazione, percorso (briciole di pane) ed elenco delle dashboard a schede. La dashboard riempie il contenuto, larga fino a 1536 px.
+- Sui componenti MUI lo stile si scrive con `sx`; sugli elementi HTML normali resta la prop `css`. Per i colori usa la palette del tema (`theme.palette`, o i nomi come `text.secondary` dentro `sx`), mai colori scritti a mano.
+- Non importare `@mui/icons-material` (pesante): usa pochi SVG propri.
+- Nessun pacchetto `@mui/x-*` senza averlo concordato (Pro e Premium sono a pagamento).
+
 ## Stile: Emotion
 
 Usa la prop `css` con un oggetto; nessun import necessario (è già configurato).

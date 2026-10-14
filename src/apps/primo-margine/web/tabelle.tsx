@@ -1,3 +1,7 @@
+import {
+	Box, Button, Paper, Table, TableBody, TableCell, TableContainer, TableFooter, TableHead, TableRow,
+	TableSortLabel, ToggleButton, ToggleButtonGroup, Typography,
+} from "@mui/material";
 import { useState } from "react";
 import {
 	type Acc, type Dati, type Filtrato, type Filtri, type RigaVista, type Vista,
@@ -79,74 +83,96 @@ export function TabellaVista({ d, F, onFiltra }: { d: Dati; F: Filtrato; onFiltr
 	);
 	const rap = (a: number, b: number, f: (n: number) => string) => (b ? f(a / b) : "–");
 
+	const fine = { fontWeight: 600, borderTop: 2, borderColor: "divider" } as const;
 	return (
-		<section className="card">
-			<div className="schede" role="tablist" aria-label="Vista della tabella">
-				{VISTE.map(([v, n]) => (
-					<button key={v} aria-pressed={v === vista} onClick={() => scegli(v)}>{n}</button>
-				))}
-				<span className="spazio" />
-				<button type="button" onClick={() => scaricaCsv(righe, vista)}>Scarica CSV</button>
-			</div>
-			<p className="note">{NOTE_VISTA[vista]}</p>
-			<div className="tabella">
-				<table>
-					<thead>
-						<tr>
+		<Paper sx={{ p: 2, mb: 2 }}>
+			<Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, alignItems: "center", justifyContent: "space-between", mb: 1.5 }}>
+				<ToggleButtonGroup
+					exclusive
+					size="small"
+					value={vista}
+					aria-label="Vista della tabella"
+					onChange={(_, v: Vista | null) => v && scegli(v)}
+				>
+					{VISTE.map(([v, n]) => (
+						<ToggleButton key={v} value={v}>{n}</ToggleButton>
+					))}
+				</ToggleButtonGroup>
+				<Button variant="outlined" size="small" onClick={() => scaricaCsv(righe, vista)}>Scarica CSV</Button>
+			</Box>
+			{NOTE_VISTA[vista] && (
+				<Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>{NOTE_VISTA[vista]}</Typography>
+			)}
+			<TableContainer sx={{ maxHeight: 640 }}>
+				<Table size="small" stickyHeader>
+					<TableHead>
+						<TableRow>
 							{COLONNE.map(([c, n]) => {
 								const col = c === "nome" && vista === "mese" ? "chiave" : c;
+								const attiva = ordina.col === col;
 								return (
-									<th
+									<TableCell
 										key={c}
-										scope="col"
-										aria-sort={ordina.col === col ? (ordina.dir > 0 ? "ascending" : "descending") : undefined}
-										onClick={() => setOrdina({ col, dir: ordina.col === col ? (-ordina.dir as 1 | -1) : c === "nome" ? 1 : -1 })}
+										align={c === "nome" ? "left" : "right"}
+										sortDirection={attiva ? (ordina.dir > 0 ? "asc" : "desc") : false}
+										sx={c === "nome" ? { minWidth: 180 } : undefined}
 									>
-										{c === "nome" ? VISTE.find(([v]) => v === vista)![1] : n}
-									</th>
+										<TableSortLabel
+											active={attiva}
+											direction={ordina.dir > 0 ? "asc" : "desc"}
+											onClick={() => setOrdina({ col, dir: attiva ? (-ordina.dir as 1 | -1) : c === "nome" ? 1 : -1 })}
+										>
+											{c === "nome" ? VISTE.find(([v]) => v === vista)![1] : n}
+										</TableSortLabel>
+									</TableCell>
 								);
 							})}
-						</tr>
-					</thead>
-					<tbody>
-						{righe.map((r) => (
-							<tr
-								key={r.chiave}
-								className={cliccabile && r.chiave !== "~senza" ? "clic" : undefined}
-								title={cliccabile && r.chiave !== "~senza" ? "Filtra su questa voce" : undefined}
-								onClick={() => clicca(r)}
-							>
-								<td>
-									{r.nome}
-									{r.det && <span className="det">{r.det}</span>}
-								</td>
-								{valori(r).map((v, i) => (
-									<td key={i} className={(i === 4 && r.margine < 0) || (i === 5 && r.marginePct !== null && r.marginePct < 0) ? "neg" : undefined}>{v}</td>
-								))}
-							</tr>
-						))}
-					</tbody>
-					<tfoot>
-						<tr>
-							<td>{`Totale (${righe.length} righe)`}</td>
-							<td />
-							<td>{eur(tot.n)}</td>
-							<td>{eur(tot.r)}</td>
-							<td>{eur(tot.c)}</td>
-							<td>{eur(tot.r - tot.c)}</td>
-							<td>{rap(tot.r - tot.c, tot.r, pct)}</td>
-							<td>{eur(tot.k)}</td>
-							<td>{rap(tot.r, tot.n, eur2)}</td>
-							<td>{rap(tot.c, tot.n, eur2)}</td>
-							<td>{rap(tot.r, tot.k, eur2)}</td>
-							<td>{rap(tot.c, tot.k, eur2)}</td>
-							<td>{rap(tot.e, tot.n, pct)}</td>
-							<td>{tot.s ? eur(tot.s) : "–"}</td>
-						</tr>
-					</tfoot>
-				</table>
-			</div>
-		</section>
+						</TableRow>
+					</TableHead>
+					<TableBody>
+						{righe.map((r) => {
+							const cliccabileRiga = cliccabile && r.chiave !== "~senza";
+							return (
+								<TableRow
+									key={r.chiave}
+									hover
+									title={cliccabileRiga ? "Filtra su questa voce" : undefined}
+									onClick={() => clicca(r)}
+									sx={{ cursor: cliccabileRiga ? "pointer" : "default" }}
+								>
+									<TableCell sx={{ whiteSpace: "normal" }}>
+										{r.nome}
+										{r.det && (
+											<Typography component="span" variant="caption" color="text.secondary" sx={{ display: "block" }}>{r.det}</Typography>
+										)}
+									</TableCell>
+									{valori(r).map((v, i) => (
+										<TableCell
+											key={i}
+											align="right"
+											sx={(i === 4 && r.margine < 0) || (i === 5 && r.marginePct !== null && r.marginePct < 0) ? { color: "error.main" } : undefined}
+										>
+											{v}
+										</TableCell>
+									))}
+								</TableRow>
+							);
+						})}
+					</TableBody>
+					<TableFooter>
+						<TableRow>
+							{[
+								`Totale (${righe.length} righe)`, "", eur(tot.n), eur(tot.r), eur(tot.c), eur(tot.r - tot.c),
+								rap(tot.r - tot.c, tot.r, pct), eur(tot.k), rap(tot.r, tot.n, eur2), rap(tot.c, tot.n, eur2),
+								rap(tot.r, tot.k, eur2), rap(tot.c, tot.k, eur2), rap(tot.e, tot.n, pct), tot.s ? eur(tot.s) : "–",
+							].map((v, i) => (
+								<TableCell key={i} align={i === 0 ? "left" : "right"} sx={{ ...fine, color: "text.primary", fontSize: 13 }}>{v}</TableCell>
+							))}
+						</TableRow>
+					</TableFooter>
+				</Table>
+			</TableContainer>
+		</Paper>
 	);
 }
 
@@ -157,31 +183,31 @@ export function TabellaComponenti({ d, F, mesi }: { d: Dati; F: Filtrato; mesi: 
 	const somma = (c: string) => mesi.reduce((b, m) => b + (s[c][m] || 0), 0);
 	const totale = F.comp.reduce((a, c) => a + somma(c), 0);
 	return (
-		<section className="card">
-			<h2>Da cosa è fatto il ricavo</h2>
-			<div className="tabella">
-				<table>
-					<thead>
-						<tr>
-							<th>Voce</th>
-							{mesi.map((m) => <th key={m}>{nomeMese(m) + (m > d.ultimo_chiuso ? "*" : "")}</th>)}
-							<th>Totale</th>
-							<th>Quota</th>
-						</tr>
-					</thead>
-					<tbody>
+		<Paper sx={{ p: 2, mb: 2 }}>
+			<Typography variant="h2" gutterBottom>Da cosa è fatto il ricavo</Typography>
+			<TableContainer>
+				<Table size="small">
+					<TableHead>
+						<TableRow>
+							<TableCell>Voce</TableCell>
+							{mesi.map((m) => <TableCell key={m} align="right">{nomeMese(m) + (m > d.ultimo_chiuso ? "*" : "")}</TableCell>)}
+							<TableCell align="right">Totale</TableCell>
+							<TableCell align="right">Quota</TableCell>
+						</TableRow>
+					</TableHead>
+					<TableBody>
 						{F.comp.filter((c) => Math.abs(somma(c)) >= 0.5).map((c) => (
-							<tr key={c}>
-								<td>{NOMI_COMP[c] || c}</td>
-								{mesi.map((m) => <td key={m}>{eur(s[c][m] || 0)}</td>)}
-								<td>{eur(somma(c))}</td>
-								<td>{totale ? pct(somma(c) / totale) : "–"}</td>
-							</tr>
+							<TableRow key={c} hover>
+								<TableCell>{NOMI_COMP[c] || c}</TableCell>
+								{mesi.map((m) => <TableCell key={m} align="right">{eur(s[c][m] || 0)}</TableCell>)}
+								<TableCell align="right">{eur(somma(c))}</TableCell>
+								<TableCell align="right">{totale ? pct(somma(c) / totale) : "–"}</TableCell>
+							</TableRow>
 						))}
-					</tbody>
-				</table>
-			</div>
-		</section>
+					</TableBody>
+				</Table>
+			</TableContainer>
+		</Paper>
 	);
 }
 
@@ -196,23 +222,23 @@ export function TabellaQualita({ d, pm }: { d: Dati; pm: [string, Acc][] }) {
 		["Ricavo non attribuito a farmacie, €", (_, m) => eur(d.non_attribuito[m] || 0)],
 	];
 	return (
-		<div className="tabella">
-			<table>
-				<thead>
-					<tr>
-						<th />
-						{pm.map(([m]) => <th key={m}>{nomeMese(m) + (m > d.ultimo_chiuso ? "*" : "")}</th>)}
-					</tr>
-				</thead>
-				<tbody>
+		<TableContainer>
+			<Table size="small">
+				<TableHead>
+					<TableRow>
+						<TableCell />
+						{pm.map(([m]) => <TableCell key={m} align="right">{nomeMese(m) + (m > d.ultimo_chiuso ? "*" : "")}</TableCell>)}
+					</TableRow>
+				</TableHead>
+				<TableBody>
 					{righe.map(([n, f]) => (
-						<tr key={n}>
-							<td>{n}</td>
-							{pm.map(([m, a]) => <td key={m}>{f(a, m)}</td>)}
-						</tr>
+						<TableRow key={n} hover>
+							<TableCell>{n}</TableCell>
+							{pm.map(([m, a]) => <TableCell key={m} align="right">{f(a, m)}</TableCell>)}
+						</TableRow>
 					))}
-				</tbody>
-			</table>
-		</div>
+				</TableBody>
+			</Table>
+		</TableContainer>
 	);
 }

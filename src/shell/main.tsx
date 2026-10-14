@@ -1,59 +1,35 @@
-import { StrictMode, Suspense, lazy, type ComponentType } from "react";
+import { GlobalStyles, ThemeProvider } from "@mui/material";
+import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Link, Route, Routes, useParams } from "react-router";
+import { BrowserRouter, Route, Routes } from "react-router";
+import { DashboardPage } from "./dashboard-page";
+import { Home } from "./home";
 import "./index.css";
+import { Layout } from "./layout";
+import { useAppTheme } from "./theme";
 
-// Le dashboard si scoprono da sole: basta creare src/apps/<nome>/meta.ts e src/apps/<nome>/web/index.tsx
-type Meta = { title: string; description: string };
-const nameOf = (path: string) => path.match(/apps\/([^/]+)\//)![1];
-
-const metas = import.meta.glob<Meta>("../apps/*/meta.ts", {
-	eager: true,
-	import: "meta",
-});
-const pages: Record<string, ComponentType> = Object.fromEntries(
-	Object.entries(
-		import.meta.glob<{ default: ComponentType }>("../apps/*/web/index.tsx"),
-	).map(([path, load]) => [nameOf(path), lazy(load)]),
-);
-
-function Home() {
+// Il tema MUI è della shell e vale per tutte le dashboard. Qui sta anche lo sfondo della pagina.
+function App() {
+	const theme = useAppTheme();
 	return (
-		<>
-			<h1>Dashboard</h1>
-			<ul>
-				{Object.entries(metas).map(([path, meta]) => (
-					<li key={path}>
-						<Link to={`/${nameOf(path)}`}>{meta.title}</Link> — {meta.description}
-					</li>
-				))}
-			</ul>
-		</>
-	);
-}
-
-// La dashboard gestisce da sola le proprie sottopagine (/<nome>/...) con <Routes> relative
-function Dashboard() {
-	const Page = pages[useParams().name!];
-	return Page ? (
-		<Suspense fallback="Caricamento…">
-			<Link to="/">← Tutte le dashboard</Link>
-			<Page />
-		</Suspense>
-	) : (
-		<p>
-			Dashboard non trovata. <Link to="/">Torna all'elenco</Link>
-		</p>
+		<ThemeProvider theme={theme}>
+			<GlobalStyles
+				styles={{
+					body: { backgroundColor: theme.palette.background.default, color: theme.palette.text.primary, fontFamily: theme.typography.fontFamily },
+				}}
+			/>
+			<BrowserRouter>
+				<Routes>
+					<Route path="/" element={<Layout><Home /></Layout>} />
+					<Route path="/:name/*" element={<Layout wide><DashboardPage /></Layout>} />
+				</Routes>
+			</BrowserRouter>
+		</ThemeProvider>
 	);
 }
 
 createRoot(document.getElementById("root")!).render(
 	<StrictMode>
-		<BrowserRouter>
-			<Routes>
-				<Route path="/" element={<Home />} />
-				<Route path="/:name/*" element={<Dashboard />} />
-			</Routes>
-		</BrowserRouter>
+		<App />
 	</StrictMode>,
 );

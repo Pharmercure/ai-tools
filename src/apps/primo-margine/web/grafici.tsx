@@ -1,3 +1,4 @@
+import { Box, Paper, Typography, useTheme } from "@mui/material";
 import { useState } from "react";
 import type { FocusEvent, MouseEvent } from "react";
 import { type Acc, type Dati, eur, nomeMese, pct } from "./calcoli";
@@ -26,7 +27,26 @@ const passi = (da: number, a: number, passo: number) => {
 	return out;
 };
 
+const svgStyle = { display: "block", width: "100%", height: "auto", overflow: "visible" } as const;
+
+function Legenda({ colore, nome }: { colore: string; nome: string }) {
+	return (
+		<Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.75 }}>
+			<Box component="i" sx={{ width: 10, height: 10, borderRadius: "2px", bgcolor: colore }} />
+			{nome}
+		</Box>
+	);
+}
+
 export default function Grafici({ d, pm }: { d: Dati; pm: [string, Acc][] }) {
+	const theme = useTheme();
+	const c = {
+		serie1: theme.palette.primary.main,
+		serie2: theme.palette.secondary.main,
+		griglia: theme.palette.divider,
+		testo: theme.palette.text.secondary,
+		asse: theme.palette.text.secondary,
+	};
 	const [tip, setTip] = useState<Tip | null>(null);
 	const mostra = (ev: Evento, titolo: string, righe: Tip["righe"]) => {
 		const rc = ev.currentTarget.getBoundingClientRect();
@@ -65,19 +85,21 @@ export default function Grafici({ d, pm }: { d: Dati; pm: [string, Acc][] }) {
 		.map((p, i) => `${i ? "L" : "M"}${p.x},${y2(p.v)}`)
 		.join("");
 
+	const testo = { fill: c.testo, fontSize: 11 };
+
 	return (
-		<div className="grafici">
-			<section className="card">
-				<h2>Ricavo e costo logistica per mese</h2>
-				<div className="legenda">
-					<span><i style={{ background: "var(--series-1)" }} />Ricavo</span>
-					<span><i style={{ background: "var(--series-2)" }} />Costo logistica</span>
-				</div>
-				<svg viewBox={`0 0 ${W1} ${H1}`} role="img" aria-label="Ricavo e costo logistica per mese">
+		<Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "3fr 2fr" }, gap: 2, mb: 2 }}>
+			<Paper sx={{ p: 2 }}>
+				<Typography variant="h2" gutterBottom>Ricavo e costo logistica per mese</Typography>
+				<Box sx={{ display: "flex", gap: 2, fontSize: 12, color: "text.secondary", mb: 1 }}>
+					<Legenda colore={c.serie1} nome="Ricavo" />
+					<Legenda colore={c.serie2} nome="Costo logistica" />
+				</Box>
+				<svg viewBox={`0 0 ${W1} ${H1}`} role="img" aria-label="Ricavo e costo logistica per mese" style={svgStyle}>
 					{passi(0, top, passo).map((v) => (
 						<g key={v}>
-							<line x1={L1} x2={W1 - R1} y1={y1(v)} y2={y1(v)} stroke="var(--grid)" />
-							<text x={L1 - 6} y={y1(v) + 4} textAnchor="end">{eur(v / 1000)}k</text>
+							<line x1={L1} x2={W1 - R1} y1={y1(v)} y2={y1(v)} stroke={c.griglia} />
+							<text x={L1 - 6} y={y1(v) + 4} textAnchor="end" {...testo}>{eur(v / 1000)}k</text>
 						</g>
 					))}
 					{pm.map(([m, a], i) => {
@@ -89,38 +111,38 @@ export default function Grafici({ d, pm }: { d: Dati; pm: [string, Acc][] }) {
 								tabIndex={0}
 								aria-label={`${nomeMese(m)}: ricavo ${eur(a.ricavo)} euro, costo ${eur(a.costo)} euro`}
 								{...gestori(titoloMese(m), [
-									["var(--series-1)", "Ricavo", eur(a.ricavo) + " €"],
-									["var(--series-2)", "Costo logistica", eur(a.costo) + " €"],
+									[c.serie1, "Ricavo", eur(a.ricavo) + " €"],
+									[c.serie2, "Costo logistica", eur(a.costo) + " €"],
 									["", "Primo margine", eur(a.ricavo - a.costo) + " €"],
 									["", "Consegne", eur(a.consegne)],
 									["", "Coin usate", eur(a.coin)],
 								])}
 							>
 								<rect x={L1 + i * gw1} y={T1} width={gw1} height={H1 - T1 - B1} fill="transparent" />
-								<Barra x={x0 - bw - 1} y={y1(a.ricavo)} w={bw} h={Math.max(0, y1(0) - y1(a.ricavo))} fill="var(--series-1)" opacity={op} />
-								<Barra x={x0 + 1} y={y1(a.costo)} w={bw} h={Math.max(0, y1(0) - y1(a.costo))} fill="var(--series-2)" opacity={op} />
-								<text x={x0} y={H1 - 10} textAnchor="middle">{nomeMese(m) + (parziale(m) ? "*" : "")}</text>
+								<Barra x={x0 - bw - 1} y={y1(a.ricavo)} w={bw} h={Math.max(0, y1(0) - y1(a.ricavo))} fill={c.serie1} opacity={op} />
+								<Barra x={x0 + 1} y={y1(a.costo)} w={bw} h={Math.max(0, y1(0) - y1(a.costo))} fill={c.serie2} opacity={op} />
+								<text x={x0} y={H1 - 10} textAnchor="middle" {...testo}>{nomeMese(m) + (parziale(m) ? "*" : "")}</text>
 							</g>
 						);
 					})}
-					<line x1={L1} x2={W1 - R1} y1={y1(0)} y2={y1(0)} stroke="var(--text-muted)" />
+					<line x1={L1} x2={W1 - R1} y1={y1(0)} y2={y1(0)} stroke={c.asse} />
 				</svg>
-			</section>
+			</Paper>
 
-			<section className="card">
-				<h2>Primo margine % per mese</h2>
-				<svg viewBox={`0 0 ${W2} ${H2}`} role="img" aria-label="Primo margine percentuale per mese">
+			<Paper sx={{ p: 2 }}>
+				<Typography variant="h2" gutterBottom>Primo margine % per mese</Typography>
+				<svg viewBox={`0 0 ${W2} ${H2}`} role="img" aria-label="Primo margine percentuale per mese" style={svgStyle}>
 					{passi(lo, hi, hi - lo > 0.6 ? 0.2 : 0.1).map((v) => (
 						<g key={v}>
-							<line x1={L2} x2={W2 - R2} y1={y2(v)} y2={y2(v)} stroke={Math.abs(v) < 1e-9 ? "var(--text-muted)" : "var(--grid)"} />
-							<text x={L2 - 6} y={y2(v) + 4} textAnchor="end">{Math.round(v * 100)}%</text>
+							<line x1={L2} x2={W2 - R2} y1={y2(v)} y2={y2(v)} stroke={Math.abs(v) < 1e-9 ? c.asse : c.griglia} />
+							<text x={L2 - 6} y={y2(v) + 4} textAnchor="end" {...testo}>{Math.round(v * 100)}%</text>
 						</g>
 					))}
-					{linea && <path d={linea} fill="none" stroke="var(--series-1)" strokeWidth={2} strokeLinejoin="round" />}
+					{linea && <path d={linea} fill="none" stroke={c.serie1} strokeWidth={2} strokeLinejoin="round" />}
 					{pm.map(([m, a], i) => {
 						const v = vals[i];
 						const etichetta = (
-							<text x={xs[i]} y={H2 - 10} textAnchor="middle">{nomeMese(m) + (parziale(m) ? "*" : "")}</text>
+							<text x={xs[i]} y={H2 - 10} textAnchor="middle" {...testo}>{nomeMese(m) + (parziale(m) ? "*" : "")}</text>
 						);
 						if (v === null) return <g key={m}>{etichetta}</g>;
 						const ultimoChiuso = !parziale(m) && (i === 0 || i === pm.length - 1 || parziale(pm[i + 1][0]));
@@ -130,36 +152,45 @@ export default function Grafici({ d, pm }: { d: Dati; pm: [string, Acc][] }) {
 								tabIndex={0}
 								aria-label={`${nomeMese(m)}: margine ${pct(v)}`}
 								{...gestori(titoloMese(m), [
-									["var(--series-1)", "Primo margine", pct(v)],
+									[c.serie1, "Primo margine", pct(v)],
 									["", "In euro", eur(a.ricavo - a.costo) + " €"],
 								])}
 							>
 								{etichetta}
 								<rect x={xs[i] - gw2 / 2} y={T2} width={gw2} height={H2 - T2 - B2} fill="transparent" />
-								<circle cx={xs[i]} cy={y2(v)} r={4} fill={parziale(m) ? "var(--surface-1)" : "var(--series-1)"} stroke="var(--series-1)" strokeWidth={2} />
+								<circle cx={xs[i]} cy={y2(v)} r={4} fill={parziale(m) ? theme.palette.background.paper : c.serie1} stroke={c.serie1} strokeWidth={2} />
 								{ultimoChiuso && (
-									<text x={xs[i]} y={y2(v) - 10} textAnchor="middle" style={{ fill: "var(--text-secondary)" }}>{pct(v)}</text>
+									<text x={xs[i]} y={y2(v) - 10} textAnchor="middle" fill={theme.palette.text.primary} fontSize={11}>{pct(v)}</text>
 								)}
 							</g>
 						);
 					})}
 				</svg>
-			</section>
+			</Paper>
 
 			{tip && (
-				<div className="tooltip" role="status" style={{ left: Math.min(window.innerWidth - 180, tip.x + 12), top: Math.max(8, tip.y - 12) }}>
-					<b>{tip.titolo}</b>
+				<Paper
+					elevation={6}
+					variant="elevation"
+					role="status"
+					sx={{
+						position: "fixed", pointerEvents: "none", transform: "translateY(-100%)", zIndex: 1500,
+						p: "8px 10px", fontSize: 12, minWidth: 160,
+						left: Math.min(window.innerWidth - 180, tip.x + 12), top: Math.max(8, tip.y - 12),
+					}}
+				>
+					<Box component="b" sx={{ display: "block", mb: 0.5 }}>{tip.titolo}</Box>
 					{tip.righe.map(([colore, nome, val]) => (
-						<div className="r" key={nome}>
+						<Box key={nome} sx={{ display: "flex", justifyContent: "space-between", gap: 1.5 }}>
 							<span>
-								{colore && <i className="k" style={{ background: colore }} />}
+								{colore && <Box component="i" sx={{ display: "inline-block", width: 12, height: 2, verticalAlign: "middle", mr: 0.75, bgcolor: colore }} />}
 								{nome}
 							</span>
-							<strong>{val}</strong>
-						</div>
+							<Box component="strong" sx={{ fontVariantNumeric: "tabular-nums" }}>{val}</Box>
+						</Box>
 					))}
-				</div>
+				</Paper>
 			)}
-		</div>
+		</Box>
 	);
 }
