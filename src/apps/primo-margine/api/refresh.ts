@@ -55,13 +55,21 @@ export async function refreshSnapshot(env: AppEnv) {
 		}).format(new Date());
 		const today = local.slice(0, 10);
 
-		const [accounts, orders, deliveryCosts, invoicesBeforeMarch, invoicesNotOnFic] = await Promise.all([
+		// allSettled: se qualche lettura fallisce si vedono tutte quelle fallite, non solo la prima
+		const reads = await Promise.allSettled([
 			aggregate<Doc>(env, pipelines.accounts),
 			aggregate<OrderDoc>(env, pipelines.ordersPipeline(romeMidnightUtc(today))),
 			aggregate<Doc>(env, pipelines.deliveryCosts),
 			aggregate<Doc>(env, pipelines.invoicesBeforeMarch),
 			aggregate<Doc>(env, pipelines.invoicesNotOnFic),
 		]);
+		const errors = reads.flatMap((r) => (r.status === "rejected" ? [String(r.reason?.message ?? r.reason)] : []));
+		if (errors.length) throw new Error(errors.join(" | "));
+		const [accounts, orders, deliveryCosts, invoicesBeforeMarch, invoicesNotOnFic] = reads.map(
+			(r) => (r as PromiseFulfilledResult<unknown>).value,
+		) as [Doc[], OrderDoc[], Doc[], Doc[], Doc[]];
+		// le altre tre letture possono essere vuote (nessuna fattura prima di marzo, nessun costo caricato…)
+		if (!accounts.length || !orders.length) throw new Error("DB proxy: anagrafiche o ordini vuoti");
 		const issued = await pullIssued(env, "invoice", START_DATE, today);
 		const creditNotes = await pullIssued(env, "credit_note", START_DATE, today);
 

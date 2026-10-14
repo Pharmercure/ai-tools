@@ -19,6 +19,7 @@ Con `npx wrangler secret put <NOME>` (in locale, in `.dev.vars`, mai in git):
 
 - `DB_PROXY_URL`: indirizzo base del DB Proxy.
 - `PMC_API_KEY`: API key del proxy.
+- `CF_ACCESS_CLIENT_ID` e `CF_ACCESS_CLIENT_SECRET` (facoltativi): service token di Cloudflare Access, se il dominio del DB Proxy lo richiede. Se mancano non vengono inviati.
 - `FIC_ACCESS_TOKEN`: access token di Fatture in Cloud per Persista, sola lettura (da chiedere a Mauri).
 
 ## Primo avvio e controllo

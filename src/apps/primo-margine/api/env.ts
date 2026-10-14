@@ -3,6 +3,9 @@ export type AppEnv = Env & {
 	/** Indirizzo base del DB Proxy (skill mongodb-proxy). */
 	DB_PROXY_URL: string;
 	PMC_API_KEY: string;
+	/** Service token di Cloudflare Access davanti al DB Proxy (facoltativo: se mancano non si inviano). */
+	CF_ACCESS_CLIENT_ID?: string;
+	CF_ACCESS_CLIENT_SECRET?: string;
 	/** Access token Fatture in Cloud di Persista, sola lettura (da chiedere a Mauri). */
 	FIC_ACCESS_TOKEN: string;
 };
