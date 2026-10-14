@@ -4,7 +4,15 @@
 	"main": "./src/worker/index.ts",
 	"compatibility_date": "2025-10-08",
 	"compatibility_flags": ["nodejs_compat"],
-	"previews": {},
+	"previews": {
+		"d1_databases": [
+			{
+				"binding": "DB",
+				"database_name": "ai-tools-db",
+				"database_id": "e8251965-9c0f-4ef9-9ca8-4508633a03cb"
+			}
+		]
+	},
 	"triggers": {
 		"crons": ["0 5 * * 1"]
 	},
