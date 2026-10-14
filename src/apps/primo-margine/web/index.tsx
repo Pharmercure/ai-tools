@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Provider } from "react-redux";
 import { type Dati, type Filtri, eur, eur2, filtra, nomeForn, nomeMese, pct, perMese, totale } from "./calcoli";
 import Grafici from "./grafici";
+import RefreshButton from "./refresh-button";
 import { stile } from "./stile";
 import { useGetDatiQuery, store } from "./store";
 import { TabellaComponenti, TabellaQualita, TabellaVista } from "./tabelle";
@@ -65,7 +66,10 @@ function Cruscotto({ d }: { d: Dati }) {
 
 	return (
 		<div css={stile}>
-			<h1>Primo margine</h1>
+			<div css={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+				<h1>Primo margine</h1>
+				<RefreshButton />
+			</div>
 			<p className="sub">
 				Ricavi pagati dalle farmacie meno costo delle loro consegne. Dati estratti il {est.toLocaleDateString("it-IT")} alle{" "}
 				{est.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })} da MongoDB e Fatture in Cloud. Ultimo mese
@@ -149,7 +153,12 @@ function Pagina() {
 	const { data, error, isLoading } = useGetDatiQuery();
 	if (isLoading) return <p>Caricamento dei dati…</p>;
 	if (error && "status" in error && error.status === 404) {
-		return <p>I dati del primo margine non sono ancora stati generati. Si aggiornano ogni lunedì mattina.</p>;
+		return (
+			<>
+				<p>I dati del primo margine non sono ancora stati generati. Si aggiornano ogni lunedì mattina.</p>
+				<RefreshButton />
+			</>
+		);
 	}
 	if (error || !data) return <p>Impossibile caricare i dati del primo margine.</p>;
 	return <Cruscotto d={data} />;

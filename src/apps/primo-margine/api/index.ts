@@ -12,6 +12,14 @@ api.get("/dati", async (c) => {
 	return new Response(data, { headers: { "content-type": "application/json" } });
 });
 
+// Esito dell'ultimo tentativo di aggiornamento (ok, scartato dai controlli o fallito), per il bottone nella pagina.
+api.get("/status", async (c) => {
+	const row = await c.env.DB
+		.prepare("SELECT id, created_at, status, log FROM primo_margine_snapshot ORDER BY id DESC LIMIT 1")
+		.first<{ id: number; created_at: string; status: string; log: string }>();
+	return c.json(row ? { ...row, log: JSON.parse(row.log) } : null);
+});
+
 // Rigenerazione su richiesta (per il primo avvio e per i test). Al massimo una all'ora:
 // legge MongoDB e Fatture in Cloud, quindi non va lanciata a raffica.
 api.post("/refresh", async (c) => {

@@ -11,7 +11,7 @@ Ricavi pagati dalle farmacie meno costo logistico delle consegne, per mese, citt
 5. Lo snapshot è salvato in D1 (`primo_margine_snapshot`: stati `ok`, `rejected`, `failed`, con il motivo in `log`; si tengono gli ultimi 5 per stato).
 6. `GET /api/primo-margine/dati` serve l'ultimo snapshot `ok` (404 se non ce n'è ancora); la pagina in `web/` lo legge.
 
-`POST /api/primo-margine/refresh` rigenera su richiesta (primo avvio, test), al massimo una volta all'ora.
+`POST /api/primo-margine/refresh` rigenera su richiesta, al massimo una volta all'ora, e `GET /api/primo-margine/status` dà l'esito dell'ultimo tentativo. Il bottone "Aggiorna dati" in alto a destra nella pagina usa questi due endpoint: avvia l'aggiornamento, controlla l'esito ogni 3 secondi e mostra il risultato (aggiornato, scartato dai controlli con i motivi, oppure fallito con l'errore). Lo può premere chiunque abbia accesso alla dashboard.
 
 ## Secrets da configurare
 
