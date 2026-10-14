@@ -1,0 +1,78 @@
+import type { CSSObject } from "@emotion/react";
+
+const chiaro = {
+	"--bg": "#f6f5f2", "--surface-1": "#fcfcfb", "--surface-2": "#f0efec", "--border": "#e2e0da", "--grid": "#e9e7e2",
+	"--text-primary": "#0b0b0b", "--text-secondary": "#52514e", "--text-muted": "#77756f", "--series-1": "#2a78d6",
+	"--series-2": "#eb6834", "--critical": "#c42e2e", "--warning-bg": "#fff4d6", "--warning-ink": "#6b4e00", "--row-hover": "#f2f1ed",
+};
+const scuro = {
+	"--bg": "#121211", "--surface-1": "#1a1a19", "--surface-2": "#232321", "--border": "#34332f", "--grid": "#2b2a27",
+	"--text-primary": "#ffffff", "--text-secondary": "#c3c2b7", "--text-muted": "#9a9890", "--series-1": "#3987e5",
+	"--series-2": "#d95926", "--critical": "#e66767", "--warning-bg": "#3a3012", "--warning-ink": "#f3d27a", "--row-hover": "#222220",
+};
+
+// Stile dell'intera dashboard (colori chiari/scuri come la vecchia pagina).
+export const stile: CSSObject = {
+	...chiaro,
+	"@media (prefers-color-scheme: dark)": scuro,
+	background: "var(--bg)",
+	color: "var(--text-primary)",
+	fontSize: 14,
+	lineHeight: 1.45,
+	padding: 16,
+	borderRadius: 10,
+	"h1": { fontSize: 22, margin: "0 0 4px" },
+	"h2": { fontSize: 15, margin: "0 0 12px" },
+	".sub": { color: "var(--text-secondary)", margin: "0 0 16px" },
+	".card": { background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 10, padding: 16, marginBottom: 16 },
+	".filtri": { display: "flex", flexWrap: "wrap", gap: "10px 14px", alignItems: "end", marginBottom: 16 },
+	".filtri label": { display: "flex", flexDirection: "column", gap: 3, fontSize: 12, color: "var(--text-secondary)" },
+	".filtri select, .filtri input[type=search]": {
+		font: "inherit", padding: "6px 8px", border: "1px solid var(--border)", borderRadius: 6,
+		background: "var(--surface-1)", color: "var(--text-primary)", minWidth: 120, maxWidth: 240,
+	},
+	".filtri .check": { flexDirection: "row", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-primary)", paddingBottom: 6 },
+	"button": {
+		font: "inherit", padding: "6px 10px", border: "1px solid var(--border)", borderRadius: 6,
+		background: "var(--surface-1)", color: "var(--text-primary)", cursor: "pointer",
+		"&:hover": { background: "var(--surface-2)" },
+	},
+	".avviso": { background: "var(--warning-bg)", color: "var(--warning-ink)", borderRadius: 8, padding: "8px 12px", marginBottom: 16, fontSize: 13 },
+	".kpi": { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 16 },
+	".kpi div": { background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 10, padding: "12px 14px" },
+	".kpi span": { display: "block", fontSize: 12, color: "var(--text-secondary)" },
+	".kpi strong": { display: "block", fontSize: 22, fontVariantNumeric: "tabular-nums", marginTop: 2 },
+	".kpi em": { fontStyle: "normal", fontSize: 12, color: "var(--text-muted)" },
+	".grafici": { display: "grid", gridTemplateColumns: "3fr 2fr", gap: 16, "@media (max-width: 860px)": { gridTemplateColumns: "1fr" } },
+	".legenda": { display: "flex", gap: 16, fontSize: 12, color: "var(--text-secondary)", margin: "-4px 0 8px" },
+	".legenda i": { display: "inline-block", width: 10, height: 10, borderRadius: 2, marginRight: 6, verticalAlign: -1 },
+	"svg": { display: "block", width: "100%", height: "auto", overflow: "visible" },
+	"svg text": { fill: "var(--text-muted)", fontSize: 11 },
+	".tooltip": {
+		position: "fixed", pointerEvents: "none", transform: "translateY(-100%)", background: "var(--surface-1)",
+		border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px", fontSize: 12,
+		boxShadow: "0 4px 16px rgba(0,0,0,.12)", zIndex: 10, minWidth: 160,
+	},
+	".tooltip b": { display: "block", marginBottom: 4 },
+	".tooltip .r": { display: "flex", justifyContent: "space-between", gap: 12 },
+	".tooltip .r strong": { fontVariantNumeric: "tabular-nums" },
+	".tooltip .k": { display: "inline-block", width: 12, height: 2, verticalAlign: "middle", marginRight: 6 },
+	".schede": { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12, alignItems: "center" },
+	".schede button[aria-pressed=true]": { background: "var(--text-primary)", color: "var(--surface-1)", borderColor: "var(--text-primary)" },
+	".schede .spazio": { flex: 1 },
+	".tabella": { overflowX: "auto" },
+	"table": { borderCollapse: "collapse", width: "100%", fontVariantNumeric: "tabular-nums" },
+	"th, td": { padding: "6px 8px", borderBottom: "1px solid var(--grid)", textAlign: "right", whiteSpace: "nowrap" },
+	"th:first-of-type, td:first-of-type": { textAlign: "left", whiteSpace: "normal", minWidth: 180 },
+	"th": {
+		fontSize: 12, color: "var(--text-secondary)", fontWeight: 600, cursor: "pointer", userSelect: "none",
+		position: "sticky", top: 0, background: "var(--surface-1)", "&[aria-sort]": { color: "var(--text-primary)" },
+	},
+	"tbody tr:hover": { background: "var(--row-hover)" },
+	"tbody tr.clic": { cursor: "pointer" },
+	"tfoot td": { fontWeight: 600, borderTop: "2px solid var(--border)" },
+	"td .det": { display: "block", fontSize: 12, color: "var(--text-muted)" },
+	".neg": { color: "var(--critical)" },
+	"details summary": { cursor: "pointer", color: "var(--text-secondary)" },
+	".note": { fontSize: 13, color: "var(--text-secondary)", "li": { marginBottom: 4 } },
+};

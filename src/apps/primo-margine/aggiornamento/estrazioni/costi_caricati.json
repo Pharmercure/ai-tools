@@ -1,0 +1,40 @@
+{
+ "collection": "DeliveryAgencyInvoice",
+ "file": "costi_caricati.json",
+ "pipeline": [
+  {
+   "$match": {
+    "To": {
+     "$gte": {
+      "$date": "2026-03-01T00:00:00Z"
+     }
+    }
+   }
+  },
+  {
+   "$project": {
+    "_id": 0,
+    "a": {
+     "$toString": "$DeliveryAgencyId"
+    },
+    "nome": "$DeliveryAgencyName",
+    "from": "$From",
+    "to": "$To",
+    "act": "$ActualTotalCost",
+    "est": "$EstimatedTotalCost",
+    "coin": "$TotalCoins",
+    "cons": "$TotalDeliveries",
+    "link": "$InvoiceLink",
+    "ins": "$InsertDate"
+   }
+  },
+  {
+   "$group": {
+    "_id": null,
+    "righe": {
+     "$push": "$$ROOT"
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,58 @@
+{
+ "collection": "Invoice",
+ "file": "fatture_non_su_fic.json",
+ "pipeline": [
+  {
+   "$match": {
+    "InsertDate": {
+     "$gte": {
+      "$date": "2026-03-01T00:00:00Z"
+     }
+    },
+    "Type": {
+     "$in": [
+      1,
+      2,
+      3,
+      5
+     ]
+    },
+    "$or": [
+     {
+      "ExternalId": null
+     },
+     {
+      "ExternalId": 0
+     }
+    ]
+   }
+  },
+  {
+   "$project": {
+    "_id": 0,
+    "x": "$ExternalId",
+    "p": "$Partner.PharmacyId",
+    "g": "$Partner.GroupId",
+    "gb": "$IsBillingGroup",
+    "t": "$Type",
+    "f": "$From",
+    "to": "$To",
+    "net": "$TotalToBePaidNet",
+    "ins": "$InsertDate",
+    "prod": "$FICInvoice.FICProducts",
+    "st": "$State"
+   }
+  },
+  {
+   "$group": {
+    "_id": "fattureNonSuFIC",
+    "n": {
+     "$sum": 1
+    },
+    "righe": {
+     "$push": "$$ROOT"
+    }
+   }
+  }
+ ]
+}

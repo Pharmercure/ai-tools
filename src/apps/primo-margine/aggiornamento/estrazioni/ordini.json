@@ -1,0 +1,249 @@
+{
+ "collection": "Order",
+ "file": "ordini.json",
+ "pipeline": [
+  {
+   "$match": {
+    "CurrentStateCode": "9",
+    "Delivery.DeliveryDateTime": {
+     "$gte": {
+      "$date": "2026-02-28T23:00:00Z"
+     },
+     "$lt": {
+      "$date": "__A__"
+     }
+    }
+   }
+  },
+  {
+   "$project": {
+    "_id": 0,
+    "m": {
+     "$dateToString": {
+      "date": "$Delivery.DeliveryDateTime",
+      "format": "%Y-%m",
+      "timezone": "Europe/Rome"
+     }
+    },
+    "p": "$PharmacyId",
+    "a": "$Delivery.DeliveryAgencyId",
+    "acc": {
+     "$gt": [
+      {
+       "$convert": {
+        "input": "$Payment.ActualCoinCost",
+        "to": "double",
+        "onError": 0,
+        "onNull": 0
+       }
+      },
+      0
+     ]
+    },
+    "dac": {
+     "$convert": {
+      "input": "$Payment.DeliveryAgencyCost",
+      "to": "double",
+      "onError": 0,
+      "onNull": 0
+     }
+    },
+    "lz": {
+     "$cond": [
+      "$Delivery.DeliveryInLargeZone",
+      1,
+      0
+     ]
+    },
+    "rx": {
+     "$cond": [
+      "$Delivery.HasPrescriptionPickup",
+      1,
+      0
+     ]
+    },
+    "bk": {
+     "$cond": [
+      "$Delivery.BulkyDelivery",
+      1,
+      0
+     ]
+    },
+    "o": "$Origin",
+    "co": {
+     "$ifNull": [
+      "$Delivery.DetractedDeliveries",
+      0
+     ]
+    }
+   }
+  },
+  {
+   "$set": {
+    "senza": {
+     "$and": [
+      {
+       "$not": [
+        "$acc"
+       ]
+      },
+      {
+       "$lte": [
+        "$dac",
+        0
+       ]
+      }
+     ]
+    }
+   }
+  },
+  {
+   "$group": {
+    "_id": {
+     "m": "$m",
+     "p": "$p",
+     "a": "$a"
+    },
+    "n": {
+     "$sum": 1
+    },
+    "nAcc": {
+     "$sum": {
+      "$cond": [
+       "$acc",
+       1,
+       0
+      ]
+     }
+    },
+    "dac": {
+     "$sum": {
+      "$cond": [
+       "$acc",
+       0,
+       "$dac"
+      ]
+     }
+    },
+    "nDac": {
+     "$sum": {
+      "$cond": [
+       {
+        "$and": [
+         {
+          "$not": [
+           "$acc"
+          ]
+         },
+         {
+          "$gt": [
+           "$dac",
+           0
+          ]
+         }
+        ]
+       },
+       1,
+       0
+      ]
+     }
+    },
+    "nS": {
+     "$sum": {
+      "$cond": [
+       "$senza",
+       1,
+       0
+      ]
+     }
+    },
+    "lzS": {
+     "$sum": {
+      "$cond": [
+       "$senza",
+       "$lz",
+       0
+      ]
+     }
+    },
+    "rxS": {
+     "$sum": {
+      "$cond": [
+       "$senza",
+       "$rx",
+       0
+      ]
+     }
+    },
+    "bkS": {
+     "$sum": {
+      "$cond": [
+       "$senza",
+       "$bk",
+       0
+      ]
+     }
+    },
+    "rx": {
+     "$sum": "$rx"
+    },
+    "lz": {
+     "$sum": "$lz"
+    },
+    "wa": {
+     "$sum": {
+      "$cond": [
+       {
+        "$eq": [
+         "$o",
+         2
+        ]
+       },
+       1,
+       0
+      ]
+     }
+    },
+    "co": {
+     "$sum": "$co"
+    }
+   }
+  },
+  {
+   "$group": {
+    "_id": "$_id.m",
+    "righe": {
+     "$push": {
+      "r": [
+       "$_id.p",
+       "$_id.a",
+       "$n",
+       "$nAcc",
+       {
+        "$round": [
+         "$dac",
+         2
+        ]
+       },
+       "$nDac",
+       "$nS",
+       "$lzS",
+       "$rxS",
+       "$bkS",
+       "$rx",
+       "$lz",
+       "$wa",
+       "$co"
+      ]
+     }
+    }
+   }
+  },
+  {
+   "$sort": {
+    "_id": 1
+   }
+  }
+ ],
+ "nota": "Ogni riga: farmacia, fornitore, consegne, con costo effettivo, costo sull'ordine, consegne con costo sull'ordine, senza costo, zona estesa / ricetta / voluminose senza costo, ricetta, zona estesa, webapp, coin (Delivery.DetractedDeliveries)."
+}

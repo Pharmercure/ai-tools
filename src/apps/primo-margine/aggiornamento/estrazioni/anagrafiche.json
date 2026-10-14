@@ -1,0 +1,258 @@
+{
+ "collection": "PharmaciesGroup",
+ "file": "anagrafiche.json",
+ "pipeline": [
+  {
+   "$project": {
+    "_id": 0,
+    "id": {
+     "$toString": "$_id"
+    },
+    "nome": "$Name",
+    "pacchetto": "$TotalCoins",
+    "fatt": "$SubscriptionBillingType",
+    "canone": {
+     "$convert": {
+      "input": "$SubscriptionPrice",
+      "to": "double",
+      "onError": null,
+      "onNull": null
+     }
+    }
+   }
+  },
+  {
+   "$group": {
+    "_id": "gruppi",
+    "righe": {
+     "$push": "$$ROOT"
+    }
+   }
+  },
+  {
+   "$unionWith": {
+    "coll": "DeliveryAgency",
+    "pipeline": [
+     {
+      "$project": {
+       "_id": 0,
+       "id": {
+        "$toString": "$_id"
+       },
+       "nome": "$Name",
+       "interno": "$IsInternal",
+       "stato": "$Status",
+       "p": "$DeliveryPrice",
+       "pz": "$DeliveryPriceExtendedZone",
+       "prx": "$PrescriptionPickupCost",
+       "pbk": "$LargePackagePrice",
+       "citta": {
+        "$first": "$CityCoverage.Name"
+       }
+      }
+     },
+     {
+      "$group": {
+       "_id": "fornitori",
+       "righe": {
+        "$push": "$$ROOT"
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "$unionWith": {
+    "coll": "Pharmacy",
+    "pipeline": [
+     {
+      "$project": {
+       "_id": 0,
+       "id": {
+        "$toString": "$_id"
+       },
+       "nome": "$Name",
+       "rs": "$BusinessName",
+       "piva": "$VATNumber",
+       "citta": "$Address.City",
+       "prov": "$Address.Province",
+       "aff": "$Affiliate",
+       "gruppo": {
+        "$toString": "$PharmaciesGroupId"
+       },
+       "zona": "$ZoneBaseId"
+      }
+     },
+     {
+      "$group": {
+       "_id": "farmacie",
+       "righe": {
+        "$push": "$$ROOT"
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "$unionWith": {
+    "coll": "Invoice",
+    "pipeline": [
+     {
+      "$match": {
+       "InsertDate": {
+        "$gte": {
+         "$date": "2026-01-15T00:00:00Z"
+        }
+       }
+      }
+     },
+     {
+      "$project": {
+       "_id": 0,
+       "x": "$ExternalId",
+       "p": "$Partner.PharmacyId",
+       "g": "$Partner.GroupId",
+       "gb": "$IsBillingGroup",
+       "t": "$Type",
+       "f": "$From",
+       "to": "$To",
+       "net": "$TotalToBePaidNet"
+      }
+     },
+     {
+      "$group": {
+       "_id": "fatture",
+       "righe": {
+        "$push": "$$ROOT"
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "$unionWith": {
+    "coll": "ContractHistory",
+    "pipeline": [
+     {
+      "$match": {
+       "ExpirationDate": {
+        "$gte": {
+         "$date": "2026-02-01T00:00:00Z"
+        }
+       }
+      }
+     },
+     {
+      "$project": {
+       "_id": 0,
+       "p": "$PartnerId",
+       "a": "$ActivationDate",
+       "e": "$ExpirationDate",
+       "nome": "$SubscriptionName",
+       "coin": "$DefaultCoins",
+       "b": {
+        "$map": {
+         "input": {
+          "$filter": {
+           "input": {
+            "$ifNull": [
+             "$Blocks",
+             []
+            ]
+           },
+           "as": "x",
+           "cond": {
+            "$gte": [
+             "$$x.EndDate",
+             {
+              "$date": "2026-02-01T00:00:00Z"
+             }
+            ]
+           }
+          }
+         },
+         "as": "x",
+         "in": {
+          "s": "$$x.StartDate",
+          "e": "$$x.EndDate",
+          "pr": {
+           "$convert": {
+            "input": "$$x.Price",
+            "to": "double",
+            "onError": 0,
+            "onNull": 0
+           }
+          },
+          "tc": "$$x.TotalCoins",
+          "uc": "$$x.UsedCoins",
+          "ex": {
+           "$sum": {
+            "$map": {
+             "input": {
+              "$ifNull": [
+               "$$x.Extra",
+               []
+              ]
+             },
+             "as": "e",
+             "in": {
+              "$multiply": [
+               {
+                "$convert": {
+                 "input": "$$e.CoinPrice",
+                 "to": "double",
+                 "onError": 0,
+                 "onNull": 0
+                }
+               },
+               {
+                "$ifNull": [
+                 "$$e.UsedCoins",
+                 0
+                ]
+               }
+              ]
+             }
+            }
+           }
+          },
+          "exc": {
+           "$sum": {
+            "$map": {
+             "input": {
+              "$ifNull": [
+               "$$x.Extra",
+               []
+              ]
+             },
+             "as": "e",
+             "in": {
+              "$ifNull": [
+               "$$e.UsedCoins",
+               0
+              ]
+             }
+            }
+           }
+          }
+         }
+        }
+       }
+      }
+     },
+     {
+      "$group": {
+       "_id": "contratti",
+       "righe": {
+        "$push": "$$ROOT"
+       }
+      }
+     }
+    ]
+   }
+  }
+ ]
+}
