@@ -20,16 +20,10 @@ api.get("/status", async (c) => {
 	return c.json(row ? { ...row, log: JSON.parse(row.log) } : null);
 });
 
-// Rigenerazione su richiesta (per il primo avvio e per i test). Al massimo una all'ora:
-// legge MongoDB e Fatture in Cloud, quindi non va lanciata a raffica. Il limite non c'è in sviluppo
-// locale (npm run dev): nella build di produzione import.meta.env.DEV vale false.
-api.post("/refresh", async (c) => {
-	const recent = import.meta.env.DEV
-		? null
-		: await c.env.DB
-				.prepare("SELECT 1 AS found FROM primo_margine_snapshot WHERE created_at > datetime('now', '-1 hour') LIMIT 1")
-				.first();
-	if (recent) return c.json({ error: "un aggiornamento è già stato tentato nell'ultima ora" }, 429);
+// Rigenerazione su richiesta (primo avvio e test). Legge MongoDB e Fatture in Cloud.
+// ponytail: per ora nessun limite di frequenza, per poter provare facilmente. Prima di usarlo
+// in produzione rimettere "al massimo un tentativo all'ora" (controllo su created_at in D1).
+api.post("/refresh", (c) => {
 	c.executionCtx.waitUntil(refreshSnapshot(c.env));
 	return c.json({ started: true }, 202);
 });
