@@ -1,17 +1,20 @@
 import { StrictMode, Suspense, lazy, type ComponentType } from "react";
 import { createRoot } from "react-dom/client";
+import { BrowserRouter, Link, Route, Routes, useParams } from "react-router";
 import "./index.css";
 
-// Le dashboard si scoprono da sole: basta creare apps/<nome>/meta.ts e apps/<nome>/web/index.tsx
+// Le dashboard si scoprono da sole: basta creare src/apps/<nome>/meta.ts e src/apps/<nome>/web/index.tsx
 type Meta = { title: string; description: string };
 const nameOf = (path: string) => path.match(/apps\/([^/]+)\//)![1];
 
-const metas = import.meta.glob<Meta>("../../apps/*/meta.ts", {
+const metas = import.meta.glob<Meta>("../apps/*/meta.ts", {
 	eager: true,
 	import: "meta",
 });
-const pages = import.meta.glob<{ default: ComponentType }>(
-	"../../apps/*/web/index.tsx",
+const pages: Record<string, ComponentType> = Object.fromEntries(
+	Object.entries(
+		import.meta.glob<{ default: ComponentType }>("../apps/*/web/index.tsx"),
+	).map(([path, load]) => [nameOf(path), lazy(load)]),
 );
 
 function Home() {
@@ -21,7 +24,7 @@ function Home() {
 			<ul>
 				{Object.entries(metas).map(([path, meta]) => (
 					<li key={path}>
-						<a href={`/${nameOf(path)}/`}>{meta.title}</a> — {meta.description}
+						<Link to={`/${nameOf(path)}`}>{meta.title}</Link> — {meta.description}
 					</li>
 				))}
 			</ul>
@@ -29,23 +32,28 @@ function Home() {
 	);
 }
 
-const name = location.pathname.split("/")[1];
-const load = pages[`../../apps/${name}/web/index.tsx`];
-const Page = load ? lazy(load) : null;
+// La dashboard gestisce da sola le proprie sottopagine (/<nome>/...) con <Routes> relative
+function Dashboard() {
+	const Page = pages[useParams().name!];
+	return Page ? (
+		<Suspense fallback="Caricamento…">
+			<Link to="/">← Tutte le dashboard</Link>
+			<Page />
+		</Suspense>
+	) : (
+		<p>
+			Dashboard non trovata. <Link to="/">Torna all'elenco</Link>
+		</p>
+	);
+}
 
 createRoot(document.getElementById("root")!).render(
 	<StrictMode>
-		{!name ? (
-			<Home />
-		) : Page ? (
-			<Suspense fallback="Caricamento…">
-				<a href="/">← Tutte le dashboard</a>
-				<Page />
-			</Suspense>
-		) : (
-			<p>
-				Dashboard non trovata. <a href="/">Torna all'elenco</a>
-			</p>
-		)}
+		<BrowserRouter>
+			<Routes>
+				<Route path="/" element={<Home />} />
+				<Route path="/:name/*" element={<Dashboard />} />
+			</Routes>
+		</BrowserRouter>
 	</StrictMode>,
 );

@@ -2,9 +2,9 @@ import { Hono } from "hono";
 
 const app = new Hono<{ Bindings: Env }>();
 
-// Ogni apps/<nome>/api/index.ts viene montato automaticamente su /api/<nome>
+// Ogni src/apps/<nome>/api/index.ts viene montato automaticamente su /api/<nome>
 const routes = import.meta.glob<{ default: Hono<{ Bindings: Env }> }>(
-	"../../apps/*/api/index.ts",
+	"../apps/*/api/index.ts",
 	{ eager: true },
 );
 for (const [path, mod] of Object.entries(routes)) {
