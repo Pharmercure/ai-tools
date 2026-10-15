@@ -14,6 +14,7 @@
 		"moduleDetection": "force",
 		"noEmit": true,
 		"jsx": "react-jsx",
+		"jsxImportSource": "@emotion/react",
 
 		/* Linting */
 		"strict": true,
@@ -23,5 +24,5 @@
 		"noUncheckedSideEffectImports": true,
 		"types": ["vite/client"]
 	},
-	"include": ["src/shell", "apps/*/web", "apps/*/meta.ts"]
+	"include": ["src/shell", "src/apps/*/web", "src/apps/*/meta.ts"]
 }
