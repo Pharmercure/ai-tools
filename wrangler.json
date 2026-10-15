@@ -11,7 +11,7 @@
 			{
 				"binding": "DB",
 				"database_name": "ai-tools-db",
-				"database_id": "e8251965-9c0f-4ef9-9ca8-4508633a03cb"
+				"database_id": "356d7cab-f69d-4bbb-b369-da286ab2bb32"
 			}
 		],
 		"observability": {
@@ -48,7 +48,7 @@
 		{
 			"binding": "DB",
 			"database_name": "ai-tools-db",
-			"database_id": "e8251965-9c0f-4ef9-9ca8-4508633a03cb",
+			"database_id": "356d7cab-f69d-4bbb-b369-da286ab2bb32",
 			"migrations_dir": "migrations"
 		}
 	],
