@@ -33,18 +33,23 @@ export default function RefreshButton() {
 		setStartError(null);
 		setGaveUp(false);
 		setWaitingFrom(null); // cancella l'esito del tentativo precedente
+		const before = status?.id ?? 0;
 		try {
-			await refresh().unwrap();
-			setWaitingFrom(status?.id ?? 0);
+			await refresh().unwrap(); // resta in attesa finché l'aggiornamento è finito (anche un paio di minuti)
 		} catch (e) {
 			const data = (e as { data?: { error?: string } }).data;
-			setStartError(data?.error ?? "Impossibile avviare l'aggiornamento");
+			if (data?.error) setStartError(data.error);
+			// altrimenti la connessione è caduta: l'esito si legge comunque da /status
 		}
+		setWaitingFrom(before);
 	}
 
 	let message: string | null = startError;
 	let severity: "info" | "success" | "warning" | "error" = "error";
-	if (waiting) {
+	if (isStarting) {
+		message = "Aggiornamento in corso: legge MongoDB e Fatture in Cloud, può richiedere un paio di minuti…";
+		severity = "info";
+	} else if (waiting) {
 		message = "Aggiornamento in corso, può richiedere un minuto…";
 		severity = "info";
 	} else if (gaveUp) {
@@ -69,7 +74,7 @@ export default function RefreshButton() {
 				size="small"
 				disabled={isStarting || waiting}
 				onClick={start}
-				startIcon={waiting ? <CircularProgress size={14} color="inherit" /> : undefined}
+				startIcon={waiting || isStarting ? <CircularProgress size={14} color="inherit" /> : undefined}
 			>
 				Aggiorna dati
 			</Button>

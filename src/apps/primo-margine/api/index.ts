@@ -23,9 +23,29 @@ api.get("/status", async (c) => {
 // Rigenerazione su richiesta (primo avvio e test). Legge MongoDB e Fatture in Cloud.
 // ponytail: per ora nessun limite di frequenza, per poter provare facilmente. Prima di usarlo
 // in produzione rimettere "al massimo un tentativo all'ora" (controllo su created_at in D1).
+//
+// La risposta resta aperta finché l'aggiornamento non è finito (righe JSON: "started", un battito
+// ogni 10 s, poi l'esito). Con waitUntil dopo una risposta immediata Cloudflare annulla il lavoro
+// dopo circa 30 secondi, troppo pochi per leggere tutte le fatture.
 api.post("/refresh", (c) => {
-	c.executionCtx.waitUntil(refreshSnapshot(c.env));
-	return c.json({ started: true }, 202);
+	const { readable, writable } = new TransformStream();
+	const out = writable.getWriter();
+	const encoder = new TextEncoder();
+	const write = (line: object) => out.write(encoder.encode(JSON.stringify(line) + "\n")).catch(() => {});
+	const work = (async () => {
+		await write({ started: true });
+		const beat = setInterval(() => void write({ working: true }), 10_000);
+		try {
+			await write(await refreshSnapshot(c.env));
+		} catch (e) {
+			await write({ status: "failed", error: e instanceof Error ? e.message : String(e) });
+		} finally {
+			clearInterval(beat);
+			await out.close().catch(() => {});
+		}
+	})();
+	c.executionCtx.waitUntil(work); // se il client si disconnette il lavoro ha ancora qualche secondo per scrivere l'esito
+	return new Response(readable, { headers: { "content-type": "application/x-ndjson", "cache-control": "no-store" } });
 });
 
 export default api;

@@ -90,7 +90,8 @@ export async function refreshSnapshot(env: AppEnv) {
 	} catch (e) {
 		const message = e instanceof Error ? e.message : String(e);
 		console.error("primo-margine: aggiornamento fallito", message);
-		await save(env.DB, "failed", { error: message }, null);
+		// se anche il salvataggio dell'errore fallisce (es. D1 non raggiungibile) l'esito va comunque restituito
+		await save(env.DB, "failed", { error: message }, null).catch((e2) => console.error("primo-margine: esito non salvato", e2));
 		return { status: "failed" as const, error: message };
 	}
 }

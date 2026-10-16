@@ -18,7 +18,11 @@ export const api = createApi({
 	endpoints: (build) => ({
 		getDati: build.query<Dati, void>({ query: () => "/dati", providesTags: ["Dati"] }),
 		getStatus: build.query<Status, void>({ query: () => "/status" }),
-		refresh: build.mutation<{ started: boolean }, void>({ query: () => ({ url: "/refresh", method: "POST" }) }),
+		// La risposta è una riga JSON per volta e finisce quando l'aggiornamento è terminato.
+		refresh: build.mutation<void, void>({
+			query: () => ({ url: "/refresh", method: "POST", responseHandler: "text" }),
+			invalidatesTags: ["Dati"],
+		}),
 	}),
 });
 
