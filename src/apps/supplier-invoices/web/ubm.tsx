@@ -105,13 +105,24 @@ export function UbmPage() {
 
 			{d.differences.length > 0 && (
 				<>
-					<Typography variant="h2" component="h2" sx={{ mb: 1 }}>Dove il nostro conteggio e quello di UBM non coincidono</Typography>
+					<Typography variant="h2" component="h2" sx={{ mb: 1 }}>Confronto consegna per consegna con il file di UBM</Typography>
+					{d.comparison && (
+						<Typography variant="body2" sx={{ mb: 1 }}>
+							{d.comparison.matched} righe su {d.comparison.rows} del file di UBM corrispondono a un nostro ordine (le consegne Unipol si
+							confrontano per giorno). Dove i conteggi non coincidono, UBM conta {n(d.comparison.against)} tagliandi più di noi e{" "}
+							{n(d.comparison.favour)} meno di noi: nel complesso{" "}
+							{d.comparison.favour >= d.comparison.against
+								? `il conteggio di UBM è più basso del nostro di ${n(d.comparison.favour - d.comparison.against)} tagliandi.`
+								: `il conteggio di UBM è più alto del nostro di ${n(d.comparison.against - d.comparison.favour)} tagliandi.`}
+						</Typography>
+					)}
 					<TableContainer component={Paper}>
 						<Table size="small" aria-label="Differenze">
 							<TableHead>
 								<TableRow>
 									<TableCell>Giorno</TableCell>
 									<TableCell>Farmacia</TableCell>
+									<TableCell>Ordine</TableCell>
 									<TableCell>Motivo</TableCell>
 									<TableCell align="right">UBM</TableCell>
 									<TableCell align="right">Noi</TableCell>
@@ -122,6 +133,7 @@ export function UbmPage() {
 									<TableRow key={i}>
 										<TableCell>{date(x.date)}</TableCell>
 										<TableCell sx={{ whiteSpace: "normal" }}>{x.pharmacy}</TableCell>
+										<TableCell>{x.order ?? "–"}</TableCell>
 										<TableCell sx={{ whiteSpace: "normal", minWidth: 200 }}>{x.reason}</TableCell>
 										<TableCell align="right">{x.supplier}</TableCell>
 										<TableCell align="right">{x.model}</TableCell>

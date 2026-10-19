@@ -76,7 +76,9 @@ export type UbmImport = {
 		forecastEnd: string | null; // data stimata di esaurimento
 	} | null;
 	monthly: { month: string; deliveries: number; tickets: number; supplierTickets: number | null }[];
-	differences: { date: string; pharmacy: string; reason: string; supplier: number; model: number }[];
+	// confronto consegna per consegna fra il file di UBM e il nostro DB: solo le righe che non coincidono
+	differences: { date: string; pharmacy: string; order?: string | null; reason: string; supplier: number; model: number }[];
+	comparison?: { rows: number; matched: number; unipolDays: number; against: number; favour: number };
 };
 
 // Accordi commerciali, per il responsabile dei rapporti con i fornitori: cosa prevede il nostro
