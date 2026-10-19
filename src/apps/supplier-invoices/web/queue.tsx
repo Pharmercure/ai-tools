@@ -1,15 +1,13 @@
-import {
-	Accordion, AccordionDetails, AccordionSummary, Alert, Box, Button, Chip, CircularProgress, MenuItem, Paper, TextField,
-	ToggleButton, ToggleButtonGroup, Typography,
-} from "@mui/material";
+import { Alert, Box, Button, Chip, CircularProgress, Paper, TextField, Typography } from "@mui/material";
 import { useState } from "react";
-import { OPEN_VERDICTS, OWNERS, type Owner, type QueueItem, VERDICTS, type Verdict } from "../api/types";
-import { OWNER_HELP, VERDICT, dateTime, monthName, signedEur } from "./format";
-import { useGetLogQuery, useGetQueueQuery, useUpdateItemMutation } from "./store";
+import { Link } from "react-router";
+import { OPEN_VERDICTS, type Owner, type QueueItem, type Verdict } from "../api/types";
+import { OWNER_LABEL, VERDICT, VERDICT_ORDER, dateTime, monthName, signedEur, supplierPath } from "./format";
+import { useGetLogQuery, useUpdateItemMutation } from "./store";
 
-const FIELD_LABEL: Record<string, string> = { verdict: "verdetto", owner: "chi", note: "nota" };
+const FIELD_LABEL: Record<string, string> = { verdict: "verdetto", owner: "in mano a", note: "nota" };
 const valueLabel = (field: string, v: string | null) =>
-	v === null || v === "" ? "vuoto" : field === "verdict" ? VERDICT[v as Verdict]?.label ?? v : v;
+	v === null || v === "" ? "vuoto" : field === "verdict" ? VERDICT[v as Verdict]?.label ?? v : field === "owner" ? OWNER_LABEL[v as Owner] ?? v : v;
 
 function History({ id }: { id: string }) {
 	const { data, isLoading, isError } = useGetLogQuery(id);
@@ -27,149 +25,96 @@ function History({ id }: { id: string }) {
 	);
 }
 
-export function QueueCard({ item, showMonth }: { item: QueueItem; showMonth?: boolean }) {
+// Importo letto dal punto di vista di chi decide: quanto ci chiede il fornitore in più (o in meno) del nostro calcolo.
+export function amountLabel(amount: number | null) {
+	if (amount === null) return "importo da capire";
+	if (amount === 0) return "nessuna differenza di importo";
+	return amount > 0 ? `${signedEur(amount)} in fattura` : `${signedEur(amount)}, a nostro favore`;
+}
+
+const linkSx = { color: "inherit", textDecoration: "none", "&:hover": { textDecoration: "underline" } } as const;
+const textButtonSx = { all: "unset", cursor: "pointer", color: "primary.main", fontSize: 12, fontWeight: 600 } as const;
+
+/** Una riga della coda: il problema con i fatti, poi la decisione in un clic. */
+export function QueueCard({ item, showSupplier = true, showMonth = false }: { item: QueueItem; showSupplier?: boolean; showMonth?: boolean }) {
 	const [update, { isLoading: saving, error }] = useUpdateItemMutation();
 	const [note, setNote] = useState(item.note);
+	const [noteOpen, setNoteOpen] = useState(false);
 	const [showLog, setShowLog] = useState(false);
-	const closed = !OPEN_VERDICTS.includes(item.verdict);
+	const open = OPEN_VERDICTS.includes(item.verdict);
 	const save = (body: { verdict?: Verdict; owner?: Owner; note?: string }) => void update({ id: item.id, ...body });
 
 	return (
-		<Paper sx={{ p: 2, opacity: item.verdict === "ignorato" ? 0.6 : 1 }}>
-			<Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 1, mb: 0.5 }}>
-				<Typography variant="h2" component="h3" sx={{ textDecoration: item.verdict === "ignorato" ? "line-through" : "none" }}>
-					{item.supplier}
-				</Typography>
+		<Paper sx={{ p: 2, opacity: item.verdict === "ignorato" ? 0.65 : 1 }}>
+			<Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 1, mb: 0.75 }}>
+				{showSupplier && (
+					<Typography variant="h2" component="h3">
+						<Box component={Link} to={supplierPath(item.supplier)} sx={linkSx}>{item.supplier}</Box>
+					</Typography>
+				)}
 				<Typography variant="body2" color="text.secondary">
 					{[showMonth ? monthName(item.month) : "", item.invoice ? "fattura " + item.invoice : ""].filter(Boolean).join(" · ")}
 				</Typography>
 				<Box sx={{ flex: 1 }} />
-				<Typography sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }} title="Positivo: il fornitore chiede più di quanto calcolato da noi">
-					{item.amount === null ? "importo da capire" : signedEur(item.amount)}
-				</Typography>
+				<Typography sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{amountLabel(item.amount)}</Typography>
 			</Box>
-			<Typography variant="body2" sx={{ mb: 1, whiteSpace: "pre-wrap" }}>{item.check}</Typography>
+			<Typography variant="body2" sx={{ mb: item.deliveries ? 0.75 : 1.5, whiteSpace: "pre-wrap" }}>{item.check}</Typography>
 			{item.deliveries && (
-				<Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, wordBreak: "break-word" }}>
+				<Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5, wordBreak: "break-word" }}>
 					Consegne: {item.deliveries}
 				</Typography>
 			)}
 
-			<Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5, alignItems: "center", mb: 1 }}>
-				<TextField
-					select label="Chi controlla" value={item.owner} disabled={saving} sx={{ minWidth: 150 }}
-					onChange={(e) => save({ owner: e.target.value as Owner })}
-					helperText={OWNER_HELP[item.owner]}
-				>
-					{OWNERS.map((o) => <MenuItem key={o} value={o}>{o}</MenuItem>)}
-				</TextField>
+			<Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, alignItems: "center" }} role="group" aria-label="Verdetto">
+				{VERDICT_ORDER.filter((v) => v !== "da_verificare" || item.verdict === "da_verificare").map((v) => (
+					<Chip
+						key={v} label={VERDICT[v].label} title={VERDICT[v].help} disabled={saving}
+						color={item.verdict === v ? VERDICT[v].tone : "default"} variant={item.verdict === v ? "filled" : "outlined"}
+						onClick={item.verdict === v ? undefined : () => save({ verdict: v })}
+					/>
+				))}
 			</Box>
+			{!open && (
+				<Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>{VERDICT[item.verdict].help}</Typography>
+			)}
 
-			<ToggleButtonGroup
-				exclusive size="small" value={item.verdict} disabled={saving} aria-label="Verdetto"
-				onChange={(_, v: Verdict | null) => v && v !== item.verdict && save({ verdict: v })}
-				sx={{ flexWrap: "wrap", mb: 0.5 }}
-			>
-				{VERDICTS.map((v) => <ToggleButton key={v} value={v} title={VERDICT[v].help}>{VERDICT[v].label}</ToggleButton>)}
-			</ToggleButtonGroup>
-			<Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
-				{VERDICT[item.verdict].help}
-			</Typography>
-
-			<Box sx={{ display: "flex", gap: 1, alignItems: "flex-start", flexWrap: "wrap" }}>
-				<TextField
-					label="Nota" placeholder="Cosa hai verificato, con chi hai parlato, cosa si fa adesso"
-					value={note} onChange={(e) => setNote(e.target.value)} multiline minRows={1} sx={{ flex: 1, minWidth: 220 }}
-				/>
-				<Button variant="outlined" disabled={saving || note.trim() === item.note} onClick={() => save({ note })}>
-					Salva nota
-				</Button>
-			</Box>
+			{(noteOpen || item.note) && (
+				<Box sx={{ display: "flex", gap: 1, alignItems: "flex-start", flexWrap: "wrap", mt: 1.5 }}>
+					<TextField
+						label="Nota" placeholder="Cosa hai verificato, con chi hai parlato" value={note}
+						onChange={(e) => setNote(e.target.value)} multiline minRows={1} sx={{ flex: 1, minWidth: 220 }}
+					/>
+					<Button variant="outlined" disabled={saving || note.trim() === item.note} onClick={() => save({ note })}>Salva</Button>
+				</Box>
+			)}
 			{error && <Alert severity="error" sx={{ mt: 1 }}>Modifica non salvata: riprova o ricarica la pagina.</Alert>}
 
-			<Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 1 }}>
+			<Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1.5, mt: 1.25 }}>
+				{item.owner === "CS" ? (
+					<>
+						<Chip size="small" color="info" label="Supporto chiesto alla gestione operativa" />
+						<Box component="button" type="button" sx={textButtonSx} disabled={saving} onClick={() => save({ owner: "Logistica" })}>Riporta al responsabile</Box>
+					</>
+				) : (
+					<Box component="button" type="button" sx={textButtonSx} disabled={saving} onClick={() => save({ owner: "CS" })}>Chiedi supporto alla gestione operativa</Box>
+				)}
+				{!noteOpen && !item.note && <Box component="button" type="button" sx={textButtonSx} onClick={() => setNoteOpen(true)}>Aggiungi una nota</Box>}
+				<Box component="button" type="button" sx={textButtonSx} onClick={() => setShowLog((v) => !v)}>{showLog ? "Nascondi storico" : "Storico"}</Box>
+				<Box sx={{ flex: 1 }} />
 				<Typography variant="caption" color="text.secondary">
-					{item.updatedBy ? `Ultima modifica ${dateTime(item.updatedAt)} di ${item.updatedBy}` : `Creata ${dateTime(item.createdAt)}`}
-					{closed ? " · decisa" : ""}
+					{item.updatedBy ? `${dateTime(item.updatedAt)}, ${item.updatedBy}` : `Creata il ${dateTime(item.createdAt)}`}
 				</Typography>
-				<Box component="button" type="button" onClick={() => setShowLog((s) => !s)}
-					sx={{ all: "unset", cursor: "pointer", color: "primary.main", fontSize: 12, fontWeight: 600 }}>
-					{showLog ? "Nascondi storico" : "Storico"}
-				</Box>
 			</Box>
 			{showLog && <Box sx={{ mt: 1 }}><History id={item.id} /></Box>}
 		</Paper>
 	);
 }
 
-type Filter = { owner: "" | Owner; open: boolean; supplier: string };
-
-export function QueueList({ items, showMonth }: { items: QueueItem[]; showMonth?: boolean }) {
-	const [f, setF] = useState<Filter>({ owner: "", open: true, supplier: "" });
-	const suppliers = [...new Set(items.map((i) => i.supplier))].sort((a, b) => a.localeCompare(b, "it"));
-	const shown = items.filter(
-		(i) => (!f.owner || i.owner === f.owner) && (!f.open || OPEN_VERDICTS.includes(i.verdict)) && (!f.supplier || i.supplier === f.supplier),
-	);
-	const count = (o: Owner) => items.filter((i) => i.owner === o && OPEN_VERDICTS.includes(i.verdict)).length;
-
+export function QueueCards({ items, showSupplier, showMonth, empty }: { items: QueueItem[]; showSupplier?: boolean; showMonth?: boolean; empty: string }) {
+	if (!items.length) return <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{empty}</Typography>;
 	return (
-		<Box>
-			<Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5, alignItems: "center", mb: 2 }}>
-				<ToggleButtonGroup exclusive size="small" value={f.owner} onChange={(_, v) => v !== null && setF({ ...f, owner: v })} aria-label="Chi controlla">
-					<ToggleButton value="">Tutti</ToggleButton>
-					<ToggleButton value="CS">CS ({count("CS")})</ToggleButton>
-					<ToggleButton value="Logistica">Logistica ({count("Logistica")})</ToggleButton>
-				</ToggleButtonGroup>
-				<ToggleButtonGroup exclusive size="small" value={f.open} onChange={(_, v) => v !== null && setF({ ...f, open: v })} aria-label="Stato">
-					<ToggleButton value={true}>Da decidere</ToggleButton>
-					<ToggleButton value={false}>Tutte</ToggleButton>
-				</ToggleButtonGroup>
-				<TextField select label="Fornitore" value={f.supplier} onChange={(e) => setF({ ...f, supplier: e.target.value })}
-					sx={{ minWidth: 200 }} slotProps={{ inputLabel: { shrink: true }, select: { displayEmpty: true } }}>
-					<MenuItem value="">Tutti</MenuItem>
-					{suppliers.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-				</TextField>
-			</Box>
-			{!shown.length ? (
-				<Alert severity="success">
-					{f.open ? "Niente da decidere con questi filtri." : "Nessuna riga con questi filtri."}
-				</Alert>
-			) : (
-				<Box sx={{ display: "grid", gap: 1.5 }}>
-					{shown.map((i) => <QueueCard key={i.id} item={i} showMonth={showMonth} />)}
-				</Box>
-			)}
-		</Box>
-	);
-}
-
-export function QueuePage() {
-	const { data, isLoading, isError } = useGetQueueQuery(false);
-	if (isLoading) return <CircularProgress />;
-	if (isError || !data) return <Alert severity="error">Impossibile caricare la coda di verifica.</Alert>;
-	return (
-		<Box>
-			<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-				Ogni scostamento fra una fattura e il nostro calcolo, di tutti i mesi. La riga dice chi deve controllarlo; se non è la
-				persona giusta si cambia. Il verdetto e la nota li vedono tutti.
-			</Typography>
-			<Accordion disableGutters sx={{ mb: 2 }}>
-				<AccordionSummary>
-					<Typography variant="body2" sx={{ fontWeight: 600 }}>Cosa significano i verdetti</Typography>
-				</AccordionSummary>
-				<AccordionDetails>
-					{VERDICTS.map((v) => (
-						<Typography key={v} variant="body2" sx={{ mb: 0.5 }}>
-							<Chip size="small" label={VERDICT[v].label} sx={{ mr: 1 }} />{VERDICT[v].help}
-						</Typography>
-					))}
-					<Typography variant="body2" sx={{ mt: 1 }}>
-						Finché un fornitore ha una riga "Da verificare" o "Serve il dettaglio" per un mese, per quel mese si carica solo il
-						costo previsto, non quello effettivo. Non c'è una soglia sotto la quale si ignora: lo decide una persona.
-					</Typography>
-				</AccordionDetails>
-			</Accordion>
-			<QueueList items={data} showMonth />
+		<Box sx={{ display: "grid", gap: 1.5 }}>
+			{items.map((i) => <QueueCard key={i.id} item={i} showSupplier={showSupplier} showMonth={showMonth} />)}
 		</Box>
 	);
 }

@@ -8,6 +8,20 @@ Fornitori su Firebase. Referente: Gianluca Abate.
 
 Il procedimento è nella KB, pagina "Verifica mensile delle fatture dei fornitori esterni".
 
+## Le pagine
+
+- **Da fare** (pagina iniziale), filtrata per ruolo, che il browser ricorda:
+  - il responsabile fornitori vede tutto quello che c'è da decidere, raggruppato per fornitore;
+  - la gestione operativa vede solo le righe per cui il responsabile ha chiesto supporto;
+  - l'amministrazione vede i costi effettivi da caricare e le fatture che aspettiamo;
+  - il referente vede tutto.
+- **Mese**: lo stato del mese e i fornitori raggruppati in da decidere, pronti e in attesa della fattura.
+- **Fornitori**: l'elenco, poi la pagina di ogni fornitore con il mese, cosa decidere, l'accordo, i
+  tagliandi (UBM) e lo storico delle decisioni.
+- **Come funziona**: scopo, ruoli, verdetti e regola del costo, per chi apre lo strumento la prima volta.
+
+Il ragionamento dietro questa struttura è in `PIANO-UX.md` della cartella di lavoro del referente.
+
 ## Come funziona
 
 1. I numeri li calcola la routine di verifica (task programmati di Claude sul computer del referente):

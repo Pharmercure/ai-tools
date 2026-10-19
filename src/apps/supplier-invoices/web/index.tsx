@@ -1,30 +1,29 @@
 import { Box, Tab, Tabs, Typography } from "@mui/material";
 import { Provider } from "react-redux";
 import { Link, Route, Routes, useLocation } from "react-router";
-import { AgreementsPage } from "./agreements";
+import { HelpPage } from "./help";
 import { MonthPage } from "./month";
-import { QueuePage } from "./queue";
-import { useGetMeQuery, useGetQueueQuery, store } from "./store";
-import { UbmPage } from "./ubm";
+import { useGetMeQuery, store } from "./store";
+import { SupplierPage, SuppliersPage } from "./suppliers";
+import { TodoPage } from "./todo";
 import { UploadPage } from "./upload";
 
+// La dashboard è montata su /supplier-invoices/*. I link sono assoluti: dentro una rotta con *
+// quelli relativi si sommerebbero all'indirizzo corrente.
 const BASE = "/supplier-invoices";
 
 function Nav() {
 	const me = useGetMeQuery();
-	const open = useGetQueueQuery(true);
-	// La dashboard è montata su /supplier-invoices/*: la scheda attiva è il primo segmento dopo il nome.
-	// I link sono assoluti: dentro una rotta con * quelli relativi si sommerebbero all'indirizzo corrente.
 	const current = useLocation().pathname.split("/")[2] || "";
 	const tabs = [
-		{ to: "", label: "Mese" },
-		{ to: "queue", label: `Coda di verifica${open.data?.length ? ` (${open.data.length})` : ""}` },
-		{ to: "agreements", label: "Accordi" },
-		{ to: "ubm", label: "Tagliandi UBM" },
+		{ to: "", label: "Da fare" },
+		{ to: "month", label: "Mese" },
+		{ to: "suppliers", label: "Fornitori" },
+		{ to: "help", label: "Come funziona" },
 		...(me.data?.canImport ? [{ to: "upload", label: "Carica dati" }] : []),
 	];
 	return (
-		<Tabs value={tabs.some((t) => t.to === current) ? current : ""} variant="scrollable" allowScrollButtonsMobile sx={{ mb: 2, borderBottom: 1, borderColor: "divider" }}>
+		<Tabs value={tabs.some((t) => t.to === current) ? current : false} variant="scrollable" allowScrollButtonsMobile sx={{ mb: 2, borderBottom: 1, borderColor: "divider" }}>
 			{tabs.map((t) => <Tab key={t.to} value={t.to} label={t.label} component={Link} to={t.to ? `${BASE}/${t.to}` : BASE} />)}
 		</Tabs>
 	);
@@ -35,15 +34,15 @@ function Dashboard() {
 		<Box>
 			<Typography variant="h1" component="h1" sx={{ mb: 0.5 }}>Verifica fatture fornitori</Typography>
 			<Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-				Ogni mese confrontiamo la fattura di ogni fornitore esterno con quanto abbiamo calcolato noi dalle consegne. Il
-				procedimento è nella KB, pagina "Verifica mensile delle fatture dei fornitori esterni". Referente: Gianluca Abate.
+				Confrontiamo ogni mese le fatture dei fornitori di consegne con il nostro calcolo, per pagare il giusto e saperlo prima.
 			</Typography>
 			<Nav />
 			<Routes>
-				<Route index element={<MonthPage />} />
-				<Route path="queue" element={<QueuePage />} />
-				<Route path="agreements" element={<AgreementsPage />} />
-				<Route path="ubm" element={<UbmPage />} />
+				<Route index element={<TodoPage />} />
+				<Route path="month" element={<MonthPage />} />
+				<Route path="suppliers" element={<SuppliersPage />} />
+				<Route path="suppliers/*" element={<SupplierPage />} />
+				<Route path="help" element={<HelpPage />} />
 				<Route path="upload" element={<UploadPage />} />
 			</Routes>
 		</Box>
