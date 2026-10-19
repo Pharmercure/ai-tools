@@ -36,9 +36,24 @@ CREATE TABLE supplier_invoices_queue (
 );
 CREATE INDEX supplier_invoices_queue_month ON supplier_invoices_queue (month, supplier);
 
--- Storico delle modifiche fatte dalle persone (verdetto, chi, nota).
-CREATE TABLE supplier_invoices_queue_log (
+-- Punti aperti sugli accordi commerciali: uno per differenza fra il nostro accordo e quello che
+-- applica il fornitore. La routine li crea; stato ed esito li scrive il responsabile dei rapporti
+-- con i fornitori. L'esito di un punto chiuso è la regola da riportare nel Registro Accordi.
+CREATE TABLE supplier_invoices_agreement_items (
+	id TEXT PRIMARY KEY,
+	supplier TEXT NOT NULL,
+	topic TEXT NOT NULL,
+	status TEXT NOT NULL DEFAULT 'aperto' CHECK (status IN ('aperto', 'in_discussione', 'chiuso')),
+	outcome TEXT NOT NULL DEFAULT '',
+	created_at TEXT NOT NULL DEFAULT (datetime('now')),
+	updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+	updated_by TEXT NOT NULL DEFAULT ''
+);
+
+-- Storico delle modifiche fatte dalle persone, per la coda ("queue") e per gli accordi ("agreement").
+CREATE TABLE supplier_invoices_log (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	item_kind TEXT NOT NULL CHECK (item_kind IN ('queue', 'agreement')),
 	item_id TEXT NOT NULL,
 	field TEXT NOT NULL,
 	old_value TEXT,
@@ -46,4 +61,4 @@ CREATE TABLE supplier_invoices_queue_log (
 	changed_by TEXT NOT NULL,
 	changed_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
-CREATE INDEX supplier_invoices_queue_log_item ON supplier_invoices_queue_log (item_id, id);
+CREATE INDEX supplier_invoices_log_item ON supplier_invoices_log (item_kind, item_id, id);

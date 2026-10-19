@@ -1,12 +1,13 @@
 import { type Context, Hono } from "hono";
 import {
-	type AgreementsImport, type CostState, type Import, type LogEntry, type MonthImport, type MonthView, type QueueItem,
-	type UbmImport, AGREEMENT_STATUSES, OPEN_VERDICTS, OWNERS, VERDICTS,
+	type AgreementItemState, type AgreementsImport, type CostState, type Import, type LogEntry, type MonthImport,
+	type MonthView, type QueueItem, type UbmImport, AGREEMENT_ITEM_STATUSES, OPEN_VERDICTS, OWNERS, VERDICTS,
 } from "./types";
 
 // Montata su /api/supplier-invoices. Le tabelle D1 di questa dashboard iniziano con "supplier_invoices_".
 // I dati di ogni mese li carica la routine di verifica (POST /import); verdetto, chi e nota della coda
-// li cambiano le persone dalla pagina (PATCH /queue/:id), con storico in supplier_invoices_queue_log.
+// li cambiano le persone dalla pagina (PATCH /queue/:id); stato ed esito dei punti sugli accordi li
+// scrive il responsabile dei rapporti con i fornitori (PATCH /agreements/items/:id). Storico in supplier_invoices_log.
 const api = new Hono<{ Bindings: Env }>();
 
 // Chi può caricare i dati: il referente della dashboard. Tutti gli altri leggono e lavorano la coda.
@@ -83,15 +84,18 @@ api.get("/queue", async (c) => {
 	return c.json(results.map(toItem));
 });
 
-api.get("/queue/:id/log", async (c) => {
-	const { results } = await c.env.DB.prepare(
-		"SELECT field, old_value, new_value, changed_by, changed_at FROM supplier_invoices_queue_log WHERE item_id = ? ORDER BY id DESC",
-	).bind(c.req.param("id")).all<{ field: string; old_value: string | null; new_value: string | null; changed_by: string; changed_at: string }>();
-	const log: LogEntry[] = results.map((r) => ({
-		field: r.field, oldValue: r.old_value, newValue: r.new_value, changedBy: r.changed_by, changedAt: r.changed_at,
-	}));
-	return c.json(log);
-});
+async function readLog(db: D1Database, kind: "queue" | "agreement", id: string): Promise<LogEntry[]> {
+	const { results } = await db.prepare(
+		"SELECT field, old_value, new_value, changed_by, changed_at FROM supplier_invoices_log WHERE item_kind = ? AND item_id = ? ORDER BY id DESC",
+	).bind(kind, id).all<{ field: string; old_value: string | null; new_value: string | null; changed_by: string; changed_at: string }>();
+	return results.map((r) => ({ field: r.field, oldValue: r.old_value, newValue: r.new_value, changedBy: r.changed_by, changedAt: r.changed_at }));
+}
+
+const logStmt = (db: D1Database, kind: "queue" | "agreement", id: string, field: string, oldValue: string, newValue: string, by: string) =>
+	db.prepare("INSERT INTO supplier_invoices_log (item_kind, item_id, field, old_value, new_value, changed_by) VALUES (?, ?, ?, ?, ?, ?)")
+		.bind(kind, id, field, oldValue, newValue, by);
+
+api.get("/queue/:id/log", async (c) => c.json(await readLog(c.env.DB, "queue", c.req.param("id"))));
 
 api.patch("/queue/:id", async (c) => {
 	const id = c.req.param("id");
@@ -120,21 +124,71 @@ api.patch("/queue/:id", async (c) => {
 		if (row[field] === value) continue;
 		// field viene solo dall'elenco chiuso qui sopra: non è input dell'utente
 		stmts.push(c.env.DB.prepare(`UPDATE supplier_invoices_queue SET ${field} = ?, updated_at = datetime('now'), updated_by = ? WHERE id = ?`).bind(value, by, id));
-		stmts.push(c.env.DB.prepare(
-			"INSERT INTO supplier_invoices_queue_log (item_id, field, old_value, new_value, changed_by) VALUES (?, ?, ?, ?, ?)",
-		).bind(id, field, row[field], value, by));
+		stmts.push(logStmt(c.env.DB, "queue", id, field, row[field], value, by));
 	}
 	if (stmts.length) await c.env.DB.batch(stmts);
 	const updated = await c.env.DB.prepare("SELECT * FROM supplier_invoices_queue WHERE id = ?").bind(id).first<QueueRow>();
 	return c.json(toItem(updated!));
 });
 
+type AgreementItemRow = { id: string; status: AgreementItemState["status"]; outcome: string; updated_at: string; updated_by: string };
+const toState = (r: AgreementItemRow): AgreementItemState => ({
+	id: r.id, status: r.status, outcome: r.outcome, updatedAt: r.updated_at, updatedBy: r.updated_by,
+});
+const ITEM_COLUMNS = "id, status, outcome, updated_at, updated_by";
+
 api.get("/agreements", async (c) => {
 	const snap = await c.env.DB.prepare(
 		"SELECT data, created_at, created_by FROM supplier_invoices_snapshots WHERE kind = 'agreements' ORDER BY id DESC LIMIT 1",
 	).first<{ data: string; created_at: string; created_by: string }>();
 	if (!snap) return c.json({ error: "nessun accordo caricato" }, 404);
-	return c.json({ ...(JSON.parse(snap.data) as AgreementsImport), loadedAt: snap.created_at, loadedBy: snap.created_by });
+	const { results } = await c.env.DB.prepare(`SELECT ${ITEM_COLUMNS} FROM supplier_invoices_agreement_items`).all<AgreementItemRow>();
+	return c.json({
+		...(JSON.parse(snap.data) as AgreementsImport), loadedAt: snap.created_at, loadedBy: snap.created_by,
+		states: Object.fromEntries(results.map((r) => [r.id, toState(r)])),
+	});
+});
+
+// Punti chiusi con il loro esito: la routine li legge per riportare le regole nel Registro Accordi.
+api.get("/agreements/outcomes", async (c) => {
+	const { results } = await c.env.DB.prepare(
+		"SELECT id, supplier, topic, outcome, updated_at, updated_by FROM supplier_invoices_agreement_items WHERE status = 'chiuso' ORDER BY updated_at DESC",
+	).all();
+	return c.json(results);
+});
+
+api.get("/agreements/items/:id/log", async (c) => c.json(await readLog(c.env.DB, "agreement", c.req.param("id"))));
+
+api.patch("/agreements/items/:id", async (c) => {
+	const id = c.req.param("id");
+	const by = userEmail(c) || "sconosciuto";
+	const body = await c.req.json<{ status?: string; outcome?: string }>().catch(() => null);
+	if (!body) return c.json({ error: "richiesta non valida" }, 400);
+	const row = await c.env.DB.prepare(`SELECT ${ITEM_COLUMNS} FROM supplier_invoices_agreement_items WHERE id = ?`).bind(id).first<AgreementItemRow>();
+	if (!row) return c.json({ error: "punto non trovato" }, 404);
+	const changes: [field: "status" | "outcome", value: string][] = [];
+	if (body.status !== undefined) {
+		if (!(AGREEMENT_ITEM_STATUSES as readonly string[]).includes(body.status)) return c.json({ error: "stato non valido" }, 400);
+		changes.push(["status", body.status]);
+	}
+	if (body.outcome !== undefined) {
+		if (typeof body.outcome !== "string" || body.outcome.length > 4000) return c.json({ error: "esito non valido" }, 400);
+		changes.push(["outcome", body.outcome.trim()]);
+	}
+	// Un punto si chiude solo con un esito scritto: è la regola che poi va nel Registro Accordi.
+	const finalStatus = changes.find(([f]) => f === "status")?.[1] ?? row.status;
+	const finalOutcome = changes.find(([f]) => f === "outcome")?.[1] ?? row.outcome;
+	if (finalStatus === "chiuso" && !finalOutcome) return c.json({ error: "Per chiudere un punto scrivi prima l'esito." }, 400);
+	const stmts = [];
+	for (const [field, value] of changes) {
+		if (row[field] === value) continue;
+		// field viene solo dall'elenco chiuso qui sopra: non è input dell'utente
+		stmts.push(c.env.DB.prepare(`UPDATE supplier_invoices_agreement_items SET ${field} = ?, updated_at = datetime('now'), updated_by = ? WHERE id = ?`).bind(value, by, id));
+		stmts.push(logStmt(c.env.DB, "agreement", id, field, row[field], value, by));
+	}
+	if (stmts.length) await c.env.DB.batch(stmts);
+	const updated = await c.env.DB.prepare(`SELECT ${ITEM_COLUMNS} FROM supplier_invoices_agreement_items WHERE id = ?`).bind(id).first<AgreementItemRow>();
+	return c.json(toState(updated!));
 });
 
 api.get("/ubm", async (c) => {
@@ -171,6 +225,17 @@ api.post("/import", async (c) => {
 			).bind(q.id, q.month, q.supplier, q.invoice, q.owner, q.deliveries, q.amount, q.check, q.verdict));
 		}
 	}
+	if (data.kind === "agreements") {
+		// I punti nuovi entrano aperti; per quelli già presenti si aggiornano solo fornitore e titolo, mai stato ed esito.
+		for (const s of data.suppliers) {
+			for (const g of s.gaps) {
+				stmts.push(c.env.DB.prepare(
+					`INSERT INTO supplier_invoices_agreement_items (id, supplier, topic) VALUES (?, ?, ?)
+					 ON CONFLICT(id) DO UPDATE SET supplier = excluded.supplier, topic = excluded.topic`,
+				).bind(g.id, s.supplier, g.topic));
+			}
+		}
+	}
 	await c.env.DB.batch(stmts);
 	return c.json({ ok: true, kind: data.kind, queueRows: queued });
 });
@@ -199,8 +264,9 @@ function validate(d: Import | null): string | null {
 	if (d.kind === "agreements") {
 		if (!Array.isArray(d.themes) || !Array.isArray(d.suppliers)) return "themes e suppliers devono essere elenchi";
 		for (const s of d.suppliers) {
-			if (!s.supplier || !(AGREEMENT_STATUSES as readonly string[]).includes(s.status)) return `accordo non valido: ${s.supplier}`;
+			if (!s.supplier || typeof s.writtenAgreement !== "boolean") return `accordo non valido: ${s.supplier}`;
 			if (!Array.isArray(s.gaps) || !Array.isArray(s.ours) || !Array.isArray(s.observed)) return `accordo incompleto: ${s.supplier}`;
+			for (const g of s.gaps) if (!g.id || !g.topic) return `punto senza id o titolo per ${s.supplier}`;
 		}
 		return null;
 	}

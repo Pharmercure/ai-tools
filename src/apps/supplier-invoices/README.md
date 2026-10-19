@@ -2,8 +2,8 @@
 
 Verifica mensile delle fatture dei fornitori esterni di consegne. Per la gestione operativa (CS) e la logistica:
 per ogni fornitore e mese, previsto, fatturato e differenza; la coda degli scostamenti da verificare, con
-verdetto, chi controlla e nota; gli accordi commerciali (cosa prevediamo noi, cosa applica il fornitore,
-cosa va contestato o chiarito) per il responsabile dei rapporti con i fornitori; il contatore dei tagliandi UBM Bologna. Sostituisce il Controllo Mensile
+verdetto, chi controlla e nota; gli accordi commerciali (cosa prevede il nostro accordo, cosa applica il fornitore,
+dove non coincidono e con quale esito) per il responsabile dei rapporti con i fornitori; il contatore dei tagliandi UBM Bologna. Sostituisce il Controllo Mensile
 Fornitori su Firebase. Referente: Gianluca Abate.
 
 Il procedimento è nella KB, pagina "Verifica mensile delle fatture dei fornitori esterni".
@@ -20,8 +20,13 @@ Il procedimento è nella KB, pagina "Verifica mensile delle fatture dei fornitor
    recente. Le righe della coda (`supplier_invoices_queue`) nuove entrano con il verdetto della routine;
    per quelle già presenti cambiano solo descrizione, consegne e importo, mai verdetto, chi e nota.
 4. Verdetto, chi e nota li cambia chiunque abbia accesso (`PATCH /api/supplier-invoices/queue/:id`).
-   Ogni modifica va in `supplier_invoices_queue_log` con l'email di chi l'ha fatta.
-5. Il "costo da caricare" di un fornitore è "pronto" solo se la fattura c'è e nessuna sua riga del mese
+   Ogni modifica va in `supplier_invoices_log` con l'email di chi l'ha fatta.
+5. Ogni differenza fra il nostro accordo e quello che applica il fornitore è un punto in
+   `supplier_invoices_agreement_items`. La pagina descrive il problema con i fatti, quanto vale e la
+   domanda aperta, senza indicare la soluzione: la trova il responsabile dei rapporti con i fornitori,
+   che scrive l'esito e chiude il punto. Un punto si chiude solo con un esito, che è la regola da
+   riportare nel Registro Accordi.
+6. Il "costo da caricare" di un fornitore è "pronto" solo se la fattura c'è e nessuna sua riga del mese
    è ancora "Da verificare" o "Serve il dettaglio" (regola della KB).
 
 ## Rotte
@@ -34,7 +39,10 @@ Il procedimento è nella KB, pagina "Verifica mensile delle fatture dei fornitor
 | PATCH | `/queue/:id` | verdetto, chi, nota |
 | GET | `/queue/:id/log` | storico delle modifiche di una riga |
 | GET | `/ubm` | ultimo caricamento dei tagliandi UBM |
-| GET | `/agreements` | ultimo caricamento degli accordi commerciali |
+| GET | `/agreements` | ultimo caricamento degli accordi, con stato ed esito di ogni punto |
+| PATCH | `/agreements/items/:id` | stato (aperto, in discussione, chiuso) ed esito di un punto |
+| GET | `/agreements/items/:id/log` | storico di un punto |
+| GET | `/agreements/outcomes` | punti chiusi con l'esito, da riportare nel Registro Accordi |
 | POST | `/import` | caricamento di un mese o di UBM (solo il referente) |
 
 ## Da sapere

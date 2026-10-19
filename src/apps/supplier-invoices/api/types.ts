@@ -79,38 +79,45 @@ export type UbmImport = {
 	differences: { date: string; pharmacy: string; reason: string; supplier: number; model: number }[];
 };
 
-// Accordi commerciali: cosa prevediamo noi, cosa applica il fornitore, cosa va sistemato. Per il
-// responsabile dei rapporti con i fornitori: lo scopo è prevedere il costo esatto e ridiscutere
-// le voci non concordate.
-export const AGREEMENT_STATUSES = ["allineato", "da_chiarire", "da_contestare", "senza_accordo"] as const;
-export type AgreementStatus = (typeof AGREEMENT_STATUSES)[number];
+// Accordi commerciali, per il responsabile dei rapporti con i fornitori: cosa prevede il nostro
+// accordo, cosa applica il fornitore e dove le due cose non coincidono. Si descrive il problema con
+// i fatti e quanto vale; come risolverlo lo decide il responsabile, che ne scrive l'esito.
+export const AGREEMENT_ITEM_STATUSES = ["aperto", "in_discussione", "chiuso"] as const;
+export type AgreementItemStatus = (typeof AGREEMENT_ITEM_STATUSES)[number];
 
 export type AgreementGap = {
+	id: string; // stabile fra un caricamento e l'altro, per esempio "ubm-oltre-5km"
 	topic: string;
 	ours: string; // cosa prevede il nostro accordo
 	theirs: string; // cosa applica il fornitore
 	impact: string; // quanto vale, in parole e con il periodo
 	evidence: string; // da dove lo sappiamo
-	action: string;
-	type: "chiarire" | "contestare" | "aggiornare";
+	question: string; // la domanda aperta, senza indicare la risposta
 };
 
 export type SupplierAgreement = {
 	supplier: string;
-	status: AgreementStatus;
+	writtenAgreement: boolean; // false: nel Registro non c'è un accordo scritto
 	summary: string;
 	ours: string[];
 	observed: string[];
 	gaps: AgreementGap[];
-	ask: string; // cosa chiedere al fornitore
 };
 
 export type AgreementsImport = {
 	kind: "agreements";
 	extractedAt: string;
 	source: string;
-	themes: { title: string; detail: string; suppliers: string[]; impact: string; action: string }[];
+	themes: { title: string; detail: string; suppliers: string[]; impact: string }[];
 	suppliers: SupplierAgreement[];
+};
+
+export type AgreementItemState = {
+	id: string;
+	status: AgreementItemStatus;
+	outcome: string;
+	updatedAt: string;
+	updatedBy: string;
 };
 
 export type Import = MonthImport | UbmImport | AgreementsImport;

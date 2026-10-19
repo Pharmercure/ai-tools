@@ -8,10 +8,13 @@ import { useGetMeQuery, useGetQueueQuery, store } from "./store";
 import { UbmPage } from "./ubm";
 import { UploadPage } from "./upload";
 
+const BASE = "/supplier-invoices";
+
 function Nav() {
 	const me = useGetMeQuery();
 	const open = useGetQueueQuery(true);
 	// La dashboard è montata su /supplier-invoices/*: la scheda attiva è il primo segmento dopo il nome.
+	// I link sono assoluti: dentro una rotta con * quelli relativi si sommerebbero all'indirizzo corrente.
 	const current = useLocation().pathname.split("/")[2] || "";
 	const tabs = [
 		{ to: "", label: "Mese" },
@@ -22,7 +25,7 @@ function Nav() {
 	];
 	return (
 		<Tabs value={tabs.some((t) => t.to === current) ? current : ""} variant="scrollable" allowScrollButtonsMobile sx={{ mb: 2, borderBottom: 1, borderColor: "divider" }}>
-			{tabs.map((t) => <Tab key={t.to} value={t.to} label={t.label} component={Link} to={t.to || "."} />)}
+			{tabs.map((t) => <Tab key={t.to} value={t.to} label={t.label} component={Link} to={t.to ? `${BASE}/${t.to}` : BASE} />)}
 		</Tabs>
 	);
 }
