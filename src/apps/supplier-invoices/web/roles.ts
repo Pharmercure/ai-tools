@@ -7,7 +7,7 @@ export const ROLES = {
 	responsabile: { label: "Responsabile fornitori", help: "Tutto quello che c'è da decidere: scostamenti del mese e punti aperti con i fornitori." },
 	cs: { label: "Gestione operativa", help: "Le verifiche per cui il responsabile fornitori ha chiesto supporto." },
 	amministrazione: { label: "Amministrazione", help: "I costi effettivi da caricare e le fatture che aspettiamo." },
-	referente: { label: "Referente", help: "Il quadro completo: decisioni, supporto chiesto e costi." },
+	referente: { label: "Referente", help: "L'avanzamento del mese e chi ha in mano cosa: si guarda, non si decide." },
 } as const;
 export type Role = keyof typeof ROLES;
 

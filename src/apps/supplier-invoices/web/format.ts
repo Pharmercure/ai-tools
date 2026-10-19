@@ -1,6 +1,8 @@
 import type { CostState, SupplierMonth, Verdict } from "../api/types";
 
-const eurFmt = new Intl.NumberFormat("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// "always": in italiano Intl non separa le migliaia sotto 10.000 (9736,08 invece di 9.736,08). Il cast serve
+// perché la lib di TypeScript in uso conosce solo il valore booleano.
+const eurFmt = new Intl.NumberFormat("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: "always" as unknown as boolean });
 export const eur = (n: number | null | undefined) => (n === null || n === undefined ? "–" : eurFmt.format(n) + " €");
 export const signedEur = (n: number | null | undefined) =>
 	n === null || n === undefined ? "–" : (n > 0 ? "+" : "") + eurFmt.format(n) + " €";
