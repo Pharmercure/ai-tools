@@ -47,7 +47,8 @@ export function HelpPage() {
 			<Block title="Il costo da caricare">
 				<P>
 					Il costo effettivo di un fornitore si carica nel backadmin solo quando la fattura torna con il previsto, oppure quando tutti i
-					suoi scostamenti del mese hanno un verdetto. Finché uno scostamento è aperto resta il costo previsto.
+					suoi scostamenti del mese hanno un verdetto. Finché uno scostamento è aperto resta il costo previsto. Le righe nel backadmin
+					le prepara un task di Claude a partire da questa pagina; le controlla e le salva una persona.
 				</P>
 			</Block>
 			<Block title="Gli accordi">

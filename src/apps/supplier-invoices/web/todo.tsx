@@ -144,7 +144,7 @@ function MonthTiles({ v, open, openEur, support }: { v: MonthView; open: number;
 			<Tile label="Supporto chiesto" value={String(support)} sub="righe in mano alla gestione operativa" />
 			<Tile label="Fatture arrivate" value={`${arrived}/${s.length}`} sub={`di ${monthName(v.month)}`} to="/supplier-invoices/month" />
 			<Tile label="Tornano al primo colpo" value={`${ok}/${arrived}`} sub="fattura uguale al previsto" to="/supplier-invoices/month" />
-			<Tile label="Costo effettivo pronto" value={String(ready)} sub="fornitori da caricare nel backadmin" />
+			<Tile label="Costo effettivo pronto" value={String(ready)} sub="fornitori pronti per il backadmin" />
 		</Tiles>
 	);
 }
@@ -176,7 +176,7 @@ export function TodoPage() {
 			? `${plural(toDecide, "cosa da decidere", "cose da decidere")} su ${plural(groups.length, "fornitore", "fornitori")}${openEur ? `, ${eur(openEur)} in fattura da chiarire` : ""}.`
 			: "Niente da decidere.",
 		cs: cs.length ? `${plural(cs.length, "richiesta di supporto", "richieste di supporto")} dal responsabile fornitori.` : "Nessuna richiesta di supporto aperta.",
-		amministrazione: v ? `${plural(ready.length, "costo effettivo", "costi effettivi")} da caricare, ${expectedOnly.length} al previsto, ${plural(missing.length, "fattura", "fatture")} in arrivo.` : "",
+		amministrazione: v ? `${plural(ready.length, "costo effettivo pronto", "costi effettivi pronti")} per il backadmin, ${expectedOnly.length} al previsto, ${plural(missing.length, "fattura", "fatture")} in arrivo.` : "",
 		referente: v ? `${capitalize(monthName(v.month))}: ${arrivedN} fatture arrivate su ${v.suppliers.length}, ${ready.length} fornitori chiusi, ${plural(toDecide, "cosa", "cose")} da decidere.` : "",
 	};
 
@@ -217,12 +217,12 @@ export function TodoPage() {
 			{role === "amministrazione" && v && (
 				<>
 					<Tiles n={3}>
-						<Tile strong={ready.length > 0} label="Costo effettivo da caricare" value={String(ready.length)} sub={eur(ready.reduce((a, s) => a + (s.invoiced ?? 0), 0))} />
+						<Tile strong={ready.length > 0} label="Costo effettivo pronto" value={String(ready.length)} sub={eur(ready.reduce((a, s) => a + (s.invoiced ?? 0), 0))} />
 						<Tile label="Resta il previsto" value={String(expectedOnly.length)} sub="scostamenti ancora aperti" />
 						<Tile label="Fatture in arrivo" value={String(missing.length)} sub={`di ${monthName(v.month)}`} />
 					</Tiles>
 					<Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "3fr 2fr" }, gap: 2, alignItems: "start" }}>
-						<Section title="Costo effettivo da caricare" help="La fattura torna o tutti i suoi scostamenti sono decisi: si carica nel backadmin l'imponibile della fattura.">
+						<Section title="Costo effettivo pronto" help="La fattura torna o tutti i suoi scostamenti sono decisi: nel backadmin va l'imponibile della fattura. Il task di Claude prepara le righe, una persona le controlla e le salva.">
 							<CostTable rows={ready.map((s) => [s.supplier, s.invoices.map((i) => `${i.number} del ${date(i.date)}`).join(", ") || "–", eur(s.invoiced)])} head={["Fornitore", "Fattura", "Imponibile"]} />
 						</Section>
 						<Box>
@@ -248,7 +248,7 @@ export function TodoPage() {
 						<Tiles n={3}>
 							<Tile label="Responsabile fornitori" value={String(toDecide - cs.length)} sub={openEur ? `cose da decidere, ${eur(openEur)} in fattura da chiarire` : "cose da decidere"} />
 							<Tile label="Gestione operativa" value={String(cs.length)} sub="richieste di supporto" />
-							<Tile label="Amministrazione" value={String(ready.length)} sub="costi effettivi da caricare" />
+							<Tile label="Backadmin" value={String(ready.length)} sub="costi effettivi pronti da caricare" />
 						</Tiles>
 					</Section>
 					<Section title="Stato dei fornitori" help="Dove è arrivato ogni fornitore del mese. Il dettaglio è nella pagina Mese.">

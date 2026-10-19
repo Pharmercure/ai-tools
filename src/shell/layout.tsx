@@ -53,8 +53,8 @@ export function Layout({ children, wide = false }: { children: ReactNode; wide?:
 				component="header"
 				sx={{
 					position: "sticky", top: 0, zIndex: 1100, borderBottom: 1, borderColor: "divider",
-					bgcolor: (t) => (t.palette.mode === "dark" ? "rgba(18,18,17,0.8)" : "rgba(246,245,242,0.8)"),
-					backdropFilter: "blur(10px)",
+					// Opaca: con la trasparenza il testo che scorre sotto si leggeva attraverso il bordo della barra.
+					bgcolor: "background.default",
 				}}
 			>
 				<Container maxWidth={wide ? "xl" : "lg"} sx={{ display: "flex", alignItems: "center", gap: 2, height: 56 }}>
