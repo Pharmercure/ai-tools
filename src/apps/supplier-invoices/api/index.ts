@@ -1,7 +1,7 @@
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import {
-	type CostState, type Import, type LogEntry, type MonthImport, type MonthView, type QueueItem, type UbmImport,
-	OPEN_VERDICTS, OWNERS, VERDICTS,
+	type AgreementsImport, type CostState, type Import, type LogEntry, type MonthImport, type MonthView, type QueueItem,
+	type UbmImport, AGREEMENT_STATUSES, OPEN_VERDICTS, OWNERS, VERDICTS,
 } from "./types";
 
 // Montata su /api/supplier-invoices. Le tabelle D1 di questa dashboard iniziano con "supplier_invoices_".
@@ -12,8 +12,11 @@ const api = new Hono<{ Bindings: Env }>();
 // Chi può caricare i dati: il referente della dashboard. Tutti gli altri leggono e lavorano la coda.
 const IMPORTERS = ["gianluca.abate@pharmercure.com"];
 
-// Cloudflare Access, davanti al Worker, aggiunge l'email di chi ha fatto il login.
-const userEmail = (header: string | undefined) => (header || "").trim().toLowerCase();
+// Cloudflare Access, davanti al Worker, aggiunge l'email di chi ha fatto il login. In sviluppo locale
+// (npm run dev) Access non c'è: si usa DEV_USER_EMAIL di .dev.vars, che in produzione non esiste.
+const userEmail = (c: Context<{ Bindings: Env }>) =>
+	(c.req.header("cf-access-authenticated-user-email") || (c.env as { DEV_USER_EMAIL?: string }).DEV_USER_EMAIL || "")
+		.trim().toLowerCase();
 
 type QueueRow = {
 	id: string; month: string; supplier: string; invoice: string; owner: QueueItem["owner"]; deliveries: string;
@@ -30,7 +33,7 @@ const toItem = (r: QueueRow): QueueItem => ({
 const isMonth = (s: unknown): s is string => typeof s === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(s);
 
 api.get("/me", (c) => {
-	const email = userEmail(c.req.header("cf-access-authenticated-user-email"));
+	const email = userEmail(c);
 	return c.json({ email, canImport: IMPORTERS.includes(email) });
 });
 
@@ -92,7 +95,7 @@ api.get("/queue/:id/log", async (c) => {
 
 api.patch("/queue/:id", async (c) => {
 	const id = c.req.param("id");
-	const by = userEmail(c.req.header("cf-access-authenticated-user-email")) || "sconosciuto";
+	const by = userEmail(c) || "sconosciuto";
 	const body = await c.req.json<{ verdict?: string; owner?: string; note?: string }>().catch(() => null);
 	if (!body) return c.json({ error: "richiesta non valida" }, 400);
 	const changes: [field: "verdict" | "owner" | "note", value: string][] = [];
@@ -126,6 +129,14 @@ api.patch("/queue/:id", async (c) => {
 	return c.json(toItem(updated!));
 });
 
+api.get("/agreements", async (c) => {
+	const snap = await c.env.DB.prepare(
+		"SELECT data, created_at, created_by FROM supplier_invoices_snapshots WHERE kind = 'agreements' ORDER BY id DESC LIMIT 1",
+	).first<{ data: string; created_at: string; created_by: string }>();
+	if (!snap) return c.json({ error: "nessun accordo caricato" }, 404);
+	return c.json({ ...(JSON.parse(snap.data) as AgreementsImport), loadedAt: snap.created_at, loadedBy: snap.created_by });
+});
+
 api.get("/ubm", async (c) => {
 	const snap = await c.env.DB.prepare(
 		"SELECT data, created_at, created_by FROM supplier_invoices_snapshots WHERE kind = 'ubm' ORDER BY id DESC LIMIT 1",
@@ -137,7 +148,7 @@ api.get("/ubm", async (c) => {
 // Caricamento dei dati calcolati dalla routine. Le righe della coda nuove si inseriscono; per quelle
 // già presenti si aggiornano solo i campi descrittivi, mai verdetto, chi e nota.
 api.post("/import", async (c) => {
-	const by = userEmail(c.req.header("cf-access-authenticated-user-email"));
+	const by = userEmail(c);
 	if (!IMPORTERS.includes(by)) return c.json({ error: "solo il referente della dashboard può caricare i dati" }, 403);
 	const body = await c.req.json<Import>().catch(() => null);
 	const err = validate(body);
@@ -185,7 +196,15 @@ function validate(d: Import | null): string | null {
 		if (!Array.isArray(d.carnets) || !Array.isArray(d.monthly) || !Array.isArray(d.differences)) return "dati UBM incompleti";
 		return null;
 	}
-	return "kind deve essere month o ubm";
+	if (d.kind === "agreements") {
+		if (!Array.isArray(d.themes) || !Array.isArray(d.suppliers)) return "themes e suppliers devono essere elenchi";
+		for (const s of d.suppliers) {
+			if (!s.supplier || !(AGREEMENT_STATUSES as readonly string[]).includes(s.status)) return `accordo non valido: ${s.supplier}`;
+			if (!Array.isArray(s.gaps) || !Array.isArray(s.ours) || !Array.isArray(s.observed)) return `accordo incompleto: ${s.supplier}`;
+		}
+		return null;
+	}
+	return "kind deve essere month, ubm o agreements";
 }
 
 export default api;

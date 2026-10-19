@@ -1,6 +1,7 @@
 import { Box, Tab, Tabs, Typography } from "@mui/material";
 import { Provider } from "react-redux";
 import { Link, Route, Routes, useLocation } from "react-router";
+import { AgreementsPage } from "./agreements";
 import { MonthPage } from "./month";
 import { QueuePage } from "./queue";
 import { useGetMeQuery, useGetQueueQuery, store } from "./store";
@@ -15,6 +16,7 @@ function Nav() {
 	const tabs = [
 		{ to: "", label: "Mese" },
 		{ to: "queue", label: `Coda di verifica${open.data?.length ? ` (${open.data.length})` : ""}` },
+		{ to: "agreements", label: "Accordi" },
 		{ to: "ubm", label: "Tagliandi UBM" },
 		...(me.data?.canImport ? [{ to: "upload", label: "Carica dati" }] : []),
 	];
@@ -37,6 +39,7 @@ function Dashboard() {
 			<Routes>
 				<Route index element={<MonthPage />} />
 				<Route path="queue" element={<QueuePage />} />
+				<Route path="agreements" element={<AgreementsPage />} />
 				<Route path="ubm" element={<UbmPage />} />
 				<Route path="upload" element={<UploadPage />} />
 			</Routes>

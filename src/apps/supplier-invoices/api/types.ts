@@ -79,7 +79,41 @@ export type UbmImport = {
 	differences: { date: string; pharmacy: string; reason: string; supplier: number; model: number }[];
 };
 
-export type Import = MonthImport | UbmImport;
+// Accordi commerciali: cosa prevediamo noi, cosa applica il fornitore, cosa va sistemato. Per il
+// responsabile dei rapporti con i fornitori: lo scopo è prevedere il costo esatto e ridiscutere
+// le voci non concordate.
+export const AGREEMENT_STATUSES = ["allineato", "da_chiarire", "da_contestare", "senza_accordo"] as const;
+export type AgreementStatus = (typeof AGREEMENT_STATUSES)[number];
+
+export type AgreementGap = {
+	topic: string;
+	ours: string; // cosa prevede il nostro accordo
+	theirs: string; // cosa applica il fornitore
+	impact: string; // quanto vale, in parole e con il periodo
+	evidence: string; // da dove lo sappiamo
+	action: string;
+	type: "chiarire" | "contestare" | "aggiornare";
+};
+
+export type SupplierAgreement = {
+	supplier: string;
+	status: AgreementStatus;
+	summary: string;
+	ours: string[];
+	observed: string[];
+	gaps: AgreementGap[];
+	ask: string; // cosa chiedere al fornitore
+};
+
+export type AgreementsImport = {
+	kind: "agreements";
+	extractedAt: string;
+	source: string;
+	themes: { title: string; detail: string; suppliers: string[]; impact: string; action: string }[];
+	suppliers: SupplierAgreement[];
+};
+
+export type Import = MonthImport | UbmImport | AgreementsImport;
 
 // Risposte delle API
 export type QueueItem = Omit<QueueItemInput, "verdict"> & {

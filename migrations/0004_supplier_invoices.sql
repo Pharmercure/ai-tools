@@ -1,11 +1,12 @@
 -- Verifica fatture fornitori (dashboard supplier-invoices).
 
--- Fotografie caricate dalla routine di verifica: una per mese di consegne ("month") e una per i
--- tagliandi UBM ("ubm"). Si tiene lo storico; la pagina legge la più recente per tipo e mese.
+-- Fotografie caricate dalla routine di verifica: una per mese di consegne ("month"), una per i
+-- tagliandi UBM ("ubm") e una per gli accordi commerciali ("agreements"). Si tiene lo storico; la
+-- pagina legge la più recente per tipo e mese.
 CREATE TABLE supplier_invoices_snapshots (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	kind TEXT NOT NULL CHECK (kind IN ('month', 'ubm')),
-	-- AAAA-MM per kind = 'month', vuoto per 'ubm'
+	kind TEXT NOT NULL CHECK (kind IN ('month', 'ubm', 'agreements')),
+	-- AAAA-MM per kind = 'month', vuoto per gli altri
 	month TEXT NOT NULL DEFAULT '',
 	created_at TEXT NOT NULL DEFAULT (datetime('now')),
 	created_by TEXT NOT NULL,
