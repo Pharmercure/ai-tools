@@ -1,6 +1,6 @@
 import { configureStore } from "@reduxjs/toolkit";
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
-import type { AgreementItemState, AgreementItemStatus, AgreementsImport, Import, LogEntry, MonthView, Owner, QueueItem, UbmImport, Verdict } from "../api/types";
+import type { AgreementItemState, AgreementItemStatus, AgreementsImport, CostAction, Import, LogEntry, MonthView, Owner, QueueItem, UbmImport, Verdict } from "../api/types";
 
 export type MonthSummary = { month: string; loadedAt: string; openItems: number };
 export type Me = { email: string; canImport: boolean };
@@ -31,6 +31,10 @@ export const api = createApi({
 			query: ({ id, ...body }) => ({ url: `/queue/${encodeURIComponent(id)}`, method: "PATCH", body }),
 			invalidatesTags: ["Months", "Month", "Queue", "Log"],
 		}),
+		costAction: build.mutation<MonthView, { month: string; supplier: string; action: CostAction; amount?: number; note?: string }>({
+			query: ({ month, ...body }) => ({ url: `/costs/${month}`, method: "POST", body }),
+			invalidatesTags: ["Month"],
+		}),
 		importData: build.mutation<{ ok: boolean; kind: string; queueRows: number }, Import>({
 			query: (body) => ({ url: "/import", method: "POST", body }),
 			invalidatesTags: ["Months", "Month", "Queue", "Ubm", "Agreements"],
@@ -45,5 +49,5 @@ export const store = configureStore({
 
 export const {
 	useGetMeQuery, useGetMonthsQuery, useGetMonthQuery, useGetQueueQuery, useGetLogQuery, useGetUbmQuery, useGetAgreementsQuery, useGetAgreementLogQuery, useUpdateAgreementItemMutation,
-	useUpdateItemMutation, useImportDataMutation,
+	useUpdateItemMutation, useImportDataMutation, useCostActionMutation,
 } = api;

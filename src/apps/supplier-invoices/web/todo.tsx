@@ -3,13 +3,15 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { type AgreementGap, type AgreementItemState, type MonthView, OPEN_VERDICTS, type QueueItem } from "../api/types";
 import { GapCard, ITEM_STATUS, isOpenGap } from "./agreements";
-import { COST, date, eur, monthName, supplierPath } from "./format";
-import { useMonth } from "./month";
+import { ConfirmCost, CostState } from "./costs";
+import { COST, date, eur, monthName, signedEur, supplierPath } from "./format";
+import { diffOf, useMonth } from "./month";
 import { QueueCards } from "./queue";
 import { ROLES, type Role, useRole } from "./roles";
 import { useGetAgreementsQuery, useGetQueueQuery } from "./store";
 
 const linkSx = { color: "inherit", fontWeight: 600, textDecoration: "none", "&:hover": { textDecoration: "underline" } } as const;
+type Supplier = MonthView["suppliers"][number];
 const num = { fontVariantNumeric: "tabular-nums" } as const;
 const anchorOf = (supplier: string) => "f-" + supplier.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 const capitalize = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
@@ -35,7 +37,7 @@ function Tile({ label, value, sub, strong, to }: { label: string; value: string;
 			{sub && <Typography variant="body2" color="text.secondary">{sub}</Typography>}
 		</>
 	);
-	const sx = { p: 2, height: "100%", borderLeft: 4, borderColor: strong ? "warning.main" : "divider", display: "block", color: "inherit", textDecoration: "none" } as const;
+	const sx = { p: 2, boxSizing: "border-box", borderLeft: 4, borderColor: strong ? "warning.main" : "divider", display: "block", color: "inherit", textDecoration: "none" } as const;
 	return to
 		? <Paper component={Link} to={to} sx={{ ...sx, "&:hover": { bgcolor: "action.hover" } }}>{body}</Paper>
 		: <Paper sx={sx}>{body}</Paper>;
@@ -137,17 +139,41 @@ function MonthTiles({ v, open, openEur, support }: { v: MonthView; open: number;
 	const s = v.suppliers;
 	const arrived = s.filter((x) => x.invoiced !== null).length;
 	const ok = s.filter((x) => x.outcome === "ok").length;
-	const ready = s.filter((x) => x.costState === "actual_ready").length;
+	const toConfirm = s.filter((x) => x.costState === "to_confirm").length;
 	return (
 		<Tiles n={5}>
 			<Tile strong={open > 0} label="Da decidere" value={String(open)} sub={openEur ? `${eur(openEur)} in fattura da chiarire` : "niente in fattura da chiarire"} />
+			<Tile strong={toConfirm > 0} label="Costi da confermare" value={String(toConfirm)} sub="fatture che tornano o già decise" />
 			<Tile label="Supporto chiesto" value={String(support)} sub="righe in mano alla gestione operativa" />
 			<Tile label="Fatture arrivate" value={`${arrived}/${s.length}`} sub={`di ${monthName(v.month)}`} to="/supplier-invoices/month" />
 			<Tile label="Tornano al primo colpo" value={`${ok}/${arrived}`} sub="fattura uguale al previsto" to="/supplier-invoices/month" />
-			<Tile label="Costo effettivo pronto" value={String(ready)} sub="fornitori pronti per il backadmin" />
 		</Tiles>
 	);
 }
+
+const invoiceLabel = (s: Supplier) => s.invoices.map((i) => `${i.number} del ${date(i.date)}`).join(", ") || "–";
+
+/** Una tabella a righe di griglia: intestazione, poi una riga per fornitore con il nome che apre la sua pagina. */
+function Rows({ cols, head, rows }: { cols: string; head: string[]; rows: { key: string; cells: ReactNode[] }[] }) {
+	if (!rows.length) return <Typography variant="body2" color="text.secondary">Nessuno.</Typography>;
+	const right = (j: number) => head[j].startsWith("€");
+	return (
+		<Paper sx={{ overflow: "hidden" }}>
+			<Box sx={{ display: { xs: "none", md: "grid" }, gridTemplateColumns: cols, gap: 2, px: 2, py: 1, bgcolor: "action.hover" }}>
+				{head.map((h, j) => <Typography key={j} variant="caption" color="text.secondary" sx={{ fontWeight: 700, textAlign: right(j) ? "right" : "left" }}>{h.replace(/^€ ?/, "")}</Typography>)}
+			</Box>
+			{rows.map((r) => (
+				<Box key={r.key} sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: cols }, gap: { xs: 0.5, md: 2 }, alignItems: "center", px: 2, py: 1.25, borderTop: 1, borderColor: "divider" }}>
+					{r.cells.map((c, j) => (
+						<Box key={j} sx={{ textAlign: { md: right(j) ? "right" : "left" }, ...num, fontSize: 14, minWidth: 0 }}>{c}</Box>
+					))}
+				</Box>
+			))}
+		</Paper>
+	);
+}
+
+const SupplierLink = ({ name }: { name: string }) => <Box component={Link} to={supplierPath(name)} sx={linkSx}>{name}</Box>;
 
 export function TodoPage() {
 	const [role, setRole] = useRole();
@@ -165,19 +191,26 @@ export function TodoPage() {
 	const openEur = open.reduce((a, q) => a + Math.max(0, q.amount ?? 0), 0);
 	const toDecide = open.length + gaps.length;
 	const v = view.data;
-	const ready = v?.suppliers.filter((s) => s.costState === "actual_ready") ?? [];
+	const by = (k: Supplier["costState"]) => v?.suppliers.filter((s) => s.costState === k) ?? [];
+	const toConfirm = by("to_confirm");
+	const confirmed = by("confirmed");
+	const loaded = by("loaded");
+	const expectedOnly = by("expected_only");
+	const missing = by("no_invoice");
 	const arrivedN = v?.suppliers.filter((s) => s.invoiced !== null).length ?? 0;
-	const expectedOnly = v?.suppliers.filter((s) => s.costState === "expected_only") ?? [];
-	const missing = v?.suppliers.filter((s) => s.costState === "no_invoice") ?? [];
-	const count: Record<Role, string> = { responsabile: String(toDecide), cs: String(cs.length), amministrazione: String(ready.length), referente: "" };
+	const count: Record<Role, number> = { responsabile: toDecide + toConfirm.length, cs: cs.length, amministrazione: 0, referente: confirmed.length };
 
+	const respParts = [
+		toDecide ? `${plural(toDecide, "cosa da decidere", "cose da decidere")} su ${plural(groups.length, "fornitore", "fornitori")}${openEur ? ` (${eur(openEur)} in fattura da chiarire)` : ""}` : "",
+		toConfirm.length ? plural(toConfirm.length, "costo da confermare", "costi da confermare") : "",
+	].filter(Boolean);
 	const headline: Record<Role, string> = {
-		responsabile: toDecide
-			? `${plural(toDecide, "cosa da decidere", "cose da decidere")} su ${plural(groups.length, "fornitore", "fornitori")}${openEur ? `, ${eur(openEur)} in fattura da chiarire` : ""}.`
-			: "Niente da decidere.",
+		responsabile: respParts.length ? capitalize(respParts.join(" e ")) + "." : "Niente da decidere né da confermare.",
 		cs: cs.length ? `${plural(cs.length, "richiesta di supporto", "richieste di supporto")} dal responsabile fornitori.` : "Nessuna richiesta di supporto aperta.",
-		amministrazione: v ? `${plural(ready.length, "costo effettivo pronto", "costi effettivi pronti")} per il backadmin, ${expectedOnly.length} al previsto, ${plural(missing.length, "fattura", "fatture")} in arrivo.` : "",
-		referente: v ? `${capitalize(monthName(v.month))}: ${arrivedN} fatture arrivate su ${v.suppliers.length}, ${ready.length} fornitori chiusi, ${plural(toDecide, "cosa", "cose")} da decidere.` : "",
+		amministrazione: v ? `${plural(loaded.length, "costo inserito", "costi inseriti")} nel backadmin, ${confirmed.length} confermati da inserire, ${plural(missing.length, "fattura", "fatture")} in arrivo.` : "",
+		referente: v
+			? confirmed.length ? `${plural(confirmed.length, "costo confermato", "costi confermati")} da inserire nel backadmin.` : `${capitalize(monthName(v.month))}: nessun costo confermato da inserire.`
+			: "",
 	};
 
 	return (
@@ -196,14 +229,29 @@ export function TodoPage() {
 				<>
 					{v && <MonthTiles v={v} open={toDecide} openEur={openEur} support={cs.length} />}
 					{groups.length > 0 && (
-						<>
-							<Section title="Fornitore per fornitore" help="Dal fornitore che pesa di più. Clic su una riga per aprire le schede qui sotto; clic sul nome per la pagina del fornitore.">
-								<Overview groups={groups} states={states} linkToDetail />
-							</Section>
-							<Section title="Nel dettaglio" help="A sinistra le righe di fattura che non tornano, a destra i punti dell'accordo. Per verificare una consegna si può chiedere supporto alla gestione operativa.">
-								<Details groups={groups} states={states} />
-							</Section>
-						</>
+						<Section title="Fornitore per fornitore" help="Dal fornitore che pesa di più. Clic su una riga per aprire le schede più sotto; clic sul nome per la pagina del fornitore.">
+							<Overview groups={groups} states={states} linkToDetail />
+						</Section>
+					)}
+					{v && toConfirm.length > 0 && (
+						<Section title={`Costi da confermare (${toConfirm.length})`} help="La fattura torna, o tutti i suoi scostamenti sono decisi. Confermando si dice che quel costo si può inserire nel backadmin; se l'importo giusto è diverso dalla fattura si scrive il perché.">
+							<Rows
+								cols="minmax(170px, 1.2fr) 1.3fr 100px 100px 100px minmax(260px, 2fr)"
+								head={["Fornitore", "Fattura", "€ Previsto", "€ Imponibile", "€ Differenza", "Costo effettivo"]}
+								rows={toConfirm.map((s) => {
+									const d = diffOf(s);
+									return {
+										key: s.supplier,
+										cells: [<SupplierLink name={s.supplier} />, invoiceLabel(s), eur(s.expected), eur(s.invoiced), d === null ? "–" : signedEur(d), <ConfirmCost month={v.month} s={s} />],
+									};
+								})}
+							/>
+						</Section>
+					)}
+					{groups.length > 0 && (
+						<Section title="Nel dettaglio" help="A sinistra le righe di fattura che non tornano, a destra i punti dell'accordo. Per verificare una consegna si può chiedere supporto alla gestione operativa.">
+							<Details groups={groups} states={states} />
+						</Section>
 					)}
 				</>
 			)}
@@ -216,41 +264,46 @@ export function TodoPage() {
 
 			{role === "amministrazione" && v && (
 				<>
-					<Tiles n={3}>
-						<Tile strong={ready.length > 0} label="Costo effettivo pronto" value={String(ready.length)} sub={eur(ready.reduce((a, s) => a + (s.invoiced ?? 0), 0))} />
-						<Tile label="Resta il previsto" value={String(expectedOnly.length)} sub="scostamenti ancora aperti" />
+					<Tiles n={4}>
+						<Tile label="Inseriti nel backadmin" value={`${loaded.length}/${v.suppliers.length}`} sub={eur(loaded.reduce((a, s) => a + (s.cost?.amount ?? 0), 0))} />
+						<Tile label="Confermati, da inserire" value={String(confirmed.length)} sub={eur(confirmed.reduce((a, s) => a + (s.cost?.amount ?? 0), 0))} />
+						<Tile label="Da confermare o da decidere" value={String(toConfirm.length + expectedOnly.length)} sub="per ora resta il previsto" />
 						<Tile label="Fatture in arrivo" value={String(missing.length)} sub={`di ${monthName(v.month)}`} />
 					</Tiles>
-					<Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "3fr 2fr" }, gap: 2, alignItems: "start" }}>
-						<Section title="Costo effettivo pronto" help="La fattura torna o tutti i suoi scostamenti sono decisi: nel backadmin va l'imponibile della fattura. Il task di Claude prepara le righe, una persona le controlla e le salva.">
-							<CostTable rows={ready.map((s) => [s.supplier, s.invoices.map((i) => `${i.number} del ${date(i.date)}`).join(", ") || "–", eur(s.invoiced)])} head={["Fornitore", "Fattura", "Imponibile"]} />
-						</Section>
-						<Box>
-							<Section title="Resta il costo previsto" help="Finché uno scostamento è aperto si carica il previsto.">
-								<CostTable rows={expectedOnly.map((s) => [s.supplier, `${s.openItems} da decidere`, eur(s.expected)])} head={["Fornitore", "", "Previsto"]} />
-							</Section>
-							<Section title="Fatture in arrivo">
-								<Typography variant="body2" color="text.secondary">{missing.map((s) => s.supplier).join(", ") || "Nessuna."}</Typography>
-							</Section>
-						</Box>
-					</Box>
+					<Section title="Costi del mese" help="Il costo effettivo entra nel backadmin dopo la conferma del responsabile fornitori. Finché non c'è, vale il previsto.">
+						<Rows
+							cols="minmax(170px, 1.2fr) 1.4fr 110px 110px minmax(200px, 1.2fr)"
+							head={["Fornitore", "Fattura", "€ Previsto", "€ Costo effettivo", "Stato"]}
+							rows={[...loaded, ...confirmed, ...toConfirm, ...expectedOnly].map((s) => ({
+								key: s.supplier,
+								cells: [<SupplierLink name={s.supplier} />, invoiceLabel(s), eur(s.expected), s.cost ? eur(s.cost.amount) : "–", <Chip size="small" color={COST[s.costState].tone} label={COST[s.costState].label} />],
+							}))}
+						/>
+					</Section>
+					<Section title="Fatture in arrivo">
+						<Typography variant="body2" color="text.secondary">{missing.map((s) => s.supplier).join(", ") || "Nessuna."}</Typography>
+					</Section>
 				</>
 			)}
 
 			{role === "referente" && v && (
 				<>
-					<Tiles n={3}>
+					<Section title={`Da inserire nel backadmin (${confirmed.length})`} help="Costi confermati dal responsabile fornitori. Dopo averli inseriti e salvati nel backadmin, si segnano qui come inseriti.">
+						<Rows
+							cols="minmax(170px, 1.2fr) 1.3fr 120px minmax(320px, 2.2fr)"
+							head={["Fornitore", "Fattura", "€ Costo confermato", ""]}
+							rows={confirmed.map((s) => ({
+								key: s.supplier,
+								cells: [<SupplierLink name={s.supplier} />, invoiceLabel(s), <b>{eur(s.cost?.amount)}</b>, <CostState month={v.month} s={s} canConfirm={false} />],
+							}))}
+						/>
+					</Section>
+					<Tiles n={4}>
 						<Tile label="Fatture arrivate" value={`${arrivedN}/${v.suppliers.length}`} sub={`di ${monthName(v.month)}`} to="/supplier-invoices/month" />
 						<Tile label="Tornano al primo colpo" value={`${v.suppliers.filter((s) => s.outcome === "ok").length}/${arrivedN}`} sub="fattura uguale al previsto" to="/supplier-invoices/month" />
-						<Tile label="Costo effettivo pronto" value={`${ready.length}/${v.suppliers.length}`} sub="fornitori chiusi per il mese" />
+						<Tile label="Inseriti nel backadmin" value={`${loaded.length}/${v.suppliers.length}`} sub="fornitori chiusi per il mese" />
+						<Tile label="Responsabile fornitori" value={String(toDecide - cs.length + toConfirm.length)} sub={`${toDecide - cs.length} da decidere, ${toConfirm.length} costi da confermare`} />
 					</Tiles>
-					<Section title="Chi ha in mano cosa">
-						<Tiles n={3}>
-							<Tile label="Responsabile fornitori" value={String(toDecide - cs.length)} sub={openEur ? `cose da decidere, ${eur(openEur)} in fattura da chiarire` : "cose da decidere"} />
-							<Tile label="Gestione operativa" value={String(cs.length)} sub="richieste di supporto" />
-							<Tile label="Backadmin" value={String(ready.length)} sub="costi effettivi pronti da caricare" />
-						</Tiles>
-					</Section>
 					<Section title="Stato dei fornitori" help="Dove è arrivato ogni fornitore del mese. Il dettaglio è nella pagina Mese.">
 						<SupplierStates v={v} />
 					</Section>
@@ -265,28 +318,11 @@ export function TodoPage() {
 	);
 }
 
-function CostTable({ head, rows }: { head: string[]; rows: string[][] }) {
-	if (!rows.length) return <Typography variant="body2" color="text.secondary">Nessuno.</Typography>;
-	return (
-		<Paper sx={{ overflow: "hidden" }}>
-			{[head, ...rows].map((r, i) => (
-				<Box key={i} sx={{ display: "grid", gridTemplateColumns: "1.2fr 1.5fr 110px", gap: 2, px: 2, py: 1, borderTop: i ? 1 : 0, borderColor: "divider", bgcolor: i ? undefined : "action.hover" }}>
-					{r.map((c, j) => (
-						<Typography key={j} variant={i ? "body2" : "caption"} color={i ? "text.primary" : "text.secondary"} sx={{ fontWeight: i && j ? 400 : i ? 600 : 700, textAlign: j === 2 ? "right" : "left", ...num }}>
-							{i && j === 0 ? <Box component={Link} to={supplierPath(c)} sx={linkSx}>{c}</Box> : c}
-						</Typography>
-					))}
-				</Box>
-			))}
-		</Paper>
-	);
-}
-
 /** Quanti fornitori in ogni stato del costo, con i nomi. */
 function SupplierStates({ v }: { v: MonthView }) {
-	const order = ["actual_ready", "expected_only", "no_invoice"] as const;
+	const order = ["expected_only", "to_confirm", "confirmed", "loaded", "no_invoice"] as const;
 	return (
-		<Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" }, gap: 1.5 }}>
+		<Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(5, 1fr)" }, gap: 1.5 }}>
 			{order.map((k) => {
 				const list = v.suppliers.filter((s) => s.costState === k);
 				return (

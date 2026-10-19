@@ -41,9 +41,11 @@ export const OUTCOME: Record<SupplierMonth["outcome"], { label: string; tone: To
 };
 
 export const COST: Record<CostState, { label: string; tone: Tone }> = {
-	actual_ready: { label: "Costo effettivo pronto", tone: "success" },
-	expected_only: { label: "Resta il previsto", tone: "warning" },
 	no_invoice: { label: "In attesa della fattura", tone: "default" },
+	expected_only: { label: "Resta il previsto", tone: "warning" },
+	to_confirm: { label: "Costo da confermare", tone: "info" },
+	confirmed: { label: "Confermato, da inserire", tone: "success" },
+	loaded: { label: "Inserito nel backadmin", tone: "default" },
 };
 
 export const supplierPath = (name: string) => `/supplier-invoices/suppliers/${encodeURIComponent(name)}`;

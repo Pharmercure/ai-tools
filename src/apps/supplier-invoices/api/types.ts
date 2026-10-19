@@ -133,7 +133,22 @@ export type QueueItem = Omit<QueueItemInput, "verdict"> & {
 	updatedBy: string;
 };
 
-export type CostState = "actual_ready" | "expected_only" | "no_invoice";
+// Il ciclo del costo effettivo di un fornitore nel mese:
+// fattura non arrivata → scostamenti aperti (resta il previsto) → da confermare (responsabile fornitori)
+// → confermato (da inserire nel backadmin) → inserito.
+export type CostState = "no_invoice" | "expected_only" | "to_confirm" | "confirmed" | "loaded";
+
+export type CostRecord = {
+	amount: number;
+	note: string;
+	confirmedAt: string;
+	confirmedBy: string;
+	loadedAt: string | null;
+	loadedBy: string;
+};
+
+export const COST_ACTIONS = ["confirm", "unconfirm", "loaded", "unloaded"] as const;
+export type CostAction = (typeof COST_ACTIONS)[number];
 
 export type MonthView = {
 	month: string;
@@ -141,7 +156,7 @@ export type MonthView = {
 	source: string;
 	loadedAt: string;
 	loadedBy: string;
-	suppliers: (SupplierMonth & { openItems: number; costState: CostState })[];
+	suppliers: (SupplierMonth & { openItems: number; costState: CostState; cost: CostRecord | null })[];
 	queue: QueueItem[];
 };
 

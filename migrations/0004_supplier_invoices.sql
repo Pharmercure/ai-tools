@@ -50,10 +50,24 @@ CREATE TABLE supplier_invoices_agreement_items (
 	updated_by TEXT NOT NULL DEFAULT ''
 );
 
--- Storico delle modifiche fatte dalle persone, per la coda ("queue") e per gli accordi ("agreement").
+-- Costo effettivo di un fornitore per un mese: il responsabile dei rapporti con i fornitori lo conferma
+-- (importo dell'imponibile, o diverso se serve), poi chi lo inserisce nel backadmin lo segna come inserito.
+CREATE TABLE supplier_invoices_costs (
+	month TEXT NOT NULL,
+	supplier TEXT NOT NULL,
+	amount REAL NOT NULL,
+	note TEXT NOT NULL DEFAULT '',
+	confirmed_at TEXT NOT NULL DEFAULT (datetime('now')),
+	confirmed_by TEXT NOT NULL,
+	loaded_at TEXT,
+	loaded_by TEXT NOT NULL DEFAULT '',
+	PRIMARY KEY (month, supplier)
+);
+
+-- Storico delle modifiche fatte dalle persone, per la coda ("queue"), gli accordi ("agreement") e i costi ("cost").
 CREATE TABLE supplier_invoices_log (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	item_kind TEXT NOT NULL CHECK (item_kind IN ('queue', 'agreement')),
+	item_kind TEXT NOT NULL CHECK (item_kind IN ('queue', 'agreement', 'cost')),
 	item_id TEXT NOT NULL,
 	field TEXT NOT NULL,
 	old_value TEXT,

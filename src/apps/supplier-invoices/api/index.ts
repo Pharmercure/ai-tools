@@ -1,13 +1,14 @@
 import { type Context, Hono } from "hono";
 import {
-	type AgreementItemState, type AgreementsImport, type CostState, type Import, type LogEntry, type MonthImport,
-	type MonthView, type QueueItem, type UbmImport, AGREEMENT_ITEM_STATUSES, OPEN_VERDICTS, OWNERS, VERDICTS,
+	type AgreementItemState, type AgreementsImport, type CostAction, type CostRecord, type CostState, type Import, type LogEntry,
+	type MonthImport, type MonthView, type QueueItem, type UbmImport, AGREEMENT_ITEM_STATUSES, COST_ACTIONS, OPEN_VERDICTS, OWNERS, VERDICTS,
 } from "./types";
 
 // Montata su /api/supplier-invoices. Le tabelle D1 di questa dashboard iniziano con "supplier_invoices_".
 // I dati di ogni mese li carica la routine di verifica (POST /import); verdetto, chi e nota della coda
 // li cambiano le persone dalla pagina (PATCH /queue/:id); stato ed esito dei punti sugli accordi li
-// scrive il responsabile dei rapporti con i fornitori (PATCH /agreements/items/:id). Storico in supplier_invoices_log.
+// scrive il responsabile dei rapporti con i fornitori (PATCH /agreements/items/:id); il costo effettivo del mese
+// lo conferma lui e chi lo inserisce nel backadmin lo segna come inserito (POST /costs/:month). Storico in supplier_invoices_log.
 const api = new Hono<{ Bindings: Env }>();
 
 // Chi può caricare i dati: il referente della dashboard. Tutti gli altri leggono e lavorano la coda.
@@ -31,6 +32,10 @@ const toItem = (r: QueueRow): QueueItem => ({
 	createdAt: r.created_at, updatedAt: r.updated_at, updatedBy: r.updated_by,
 });
 
+// Importi nello storico come li legge una persona: 2.024,00 €.
+const eurFmt = new Intl.NumberFormat("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: "always" as unknown as boolean });
+const eur = (n: number) => `${eurFmt.format(n)} €`;
+
 const isMonth = (s: unknown): s is string => typeof s === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(s);
 
 api.get("/me", (c) => {
@@ -48,29 +53,98 @@ api.get("/months", async (c) => {
 	return c.json(results.map((r) => ({ month: r.month, loadedAt: r.loaded_at, openItems: r.open_items })));
 });
 
-api.get("/months/:month", async (c) => {
-	const month = c.req.param("month");
-	if (!isMonth(month)) return c.json({ error: "mese non valido" }, 400);
-	const snap = await c.env.DB.prepare(
+type CostRow = { supplier: string; amount: number; note: string; confirmed_at: string; confirmed_by: string; loaded_at: string | null; loaded_by: string };
+const toCost = (r: CostRow): CostRecord => ({
+	amount: r.amount, note: r.note, confirmedAt: r.confirmed_at, confirmedBy: r.confirmed_by, loadedAt: r.loaded_at, loadedBy: r.loaded_by,
+});
+
+async function monthView(db: D1Database, month: string): Promise<MonthView | null> {
+	const snap = await db.prepare(
 		"SELECT data, created_at, created_by FROM supplier_invoices_snapshots WHERE kind = 'month' AND month = ? ORDER BY id DESC LIMIT 1",
 	).bind(month).first<{ data: string; created_at: string; created_by: string }>();
-	if (!snap) return c.json({ error: "nessun dato per questo mese" }, 404);
+	if (!snap) return null;
 	const data = JSON.parse(snap.data) as MonthImport;
-	const { results } = await c.env.DB.prepare(
-		"SELECT * FROM supplier_invoices_queue WHERE month = ? ORDER BY supplier, id",
-	).bind(month).all<QueueRow>();
+	const { results } = await db.prepare("SELECT * FROM supplier_invoices_queue WHERE month = ? ORDER BY supplier, id").bind(month).all<QueueRow>();
+	const { results: costRows } = await db.prepare("SELECT * FROM supplier_invoices_costs WHERE month = ?").bind(month).all<CostRow>();
 	const queue = results.map(toItem);
-	const view: MonthView = {
+	const costs = new Map(costRows.map((r) => [r.supplier, toCost(r)]));
+	return {
 		month, extractedAt: data.extractedAt, source: data.source, loadedAt: snap.created_at, loadedBy: snap.created_by,
 		suppliers: data.suppliers.map((s) => {
 			const openItems = queue.filter((q) => q.supplier === s.supplier && OPEN_VERDICTS.includes(q.verdict)).length;
-			// Regola della KB: finché uno scostamento è aperto si carica solo il costo previsto.
-			const costState: CostState = s.invoiced === null ? "no_invoice" : openItems > 0 ? "expected_only" : "actual_ready";
-			return { ...s, openItems, costState };
+			const cost = costs.get(s.supplier) ?? null;
+			// Regola della KB: finché uno scostamento è aperto si carica solo il costo previsto. Il costo effettivo
+			// si inserisce nel backadmin solo dopo che il responsabile fornitori l'ha confermato.
+			const costState: CostState = cost?.loadedAt ? "loaded" : cost ? "confirmed"
+				: s.invoiced === null ? "no_invoice" : openItems > 0 ? "expected_only" : "to_confirm";
+			return { ...s, openItems, costState, cost };
 		}),
 		queue,
 	};
+}
+
+api.get("/months/:month", async (c) => {
+	const month = c.req.param("month");
+	if (!isMonth(month)) return c.json({ error: "mese non valido" }, 400);
+	const view = await monthView(c.env.DB, month);
+	if (!view) return c.json({ error: "nessun dato per questo mese" }, 404);
 	return c.json(view);
+});
+
+// Il ciclo del costo di un fornitore nel mese: conferma (con l'importo), annullamento della conferma,
+// inserito nel backadmin, annullamento dell'inserito. Ogni passaggio va nello storico.
+api.post("/costs/:month", async (c) => {
+	const month = c.req.param("month");
+	if (!isMonth(month)) return c.json({ error: "mese non valido" }, 400);
+	const by = userEmail(c) || "sconosciuto";
+	const body = await c.req.json<{ supplier?: string; action?: CostAction; amount?: number; note?: string }>().catch(() => null);
+	if (!body || typeof body.supplier !== "string" || !(COST_ACTIONS as readonly string[]).includes(body.action ?? "")) {
+		return c.json({ error: "richiesta non valida" }, 400);
+	}
+	const db = c.env.DB;
+	const view = await monthView(db, month);
+	const s = view?.suppliers.find((x) => x.supplier === body.supplier);
+	if (!s) return c.json({ error: "fornitore non trovato nel mese" }, 404);
+	const fmt = (r: CostRecord | null) => (r ? `${eur(r.amount)}${r.loadedAt ? ", inserito" : ""}` : "");
+	let stmt: D1PreparedStatement;
+	let newValue: string;
+	switch (body.action) {
+		case "confirm": {
+			if (s.costState !== "to_confirm") {
+				return c.json({ error: s.invoiced === null ? "La fattura non è ancora arrivata." : s.openItems ? "Ci sono ancora scostamenti da decidere." : "Il costo è già confermato." }, 400);
+			}
+			const amount = Math.round(Number(body.amount) * 100) / 100;
+			if (!Number.isFinite(amount) || amount <= 0 || amount > 1_000_000) return c.json({ error: "Importo non valido." }, 400);
+			const note = typeof body.note === "string" ? body.note.trim().slice(0, 1000) : "";
+			// Un importo diverso dalla fattura (per esempio dopo una nota di credito) va spiegato.
+			if (Math.abs(amount - (s.invoiced ?? 0)) > 0.005 && !note) return c.json({ error: "Se l'importo è diverso dalla fattura scrivi il perché nella nota." }, 400);
+			stmt = db.prepare("INSERT INTO supplier_invoices_costs (month, supplier, amount, note, confirmed_by) VALUES (?, ?, ?, ?, ?)")
+				.bind(month, s.supplier, amount, note, by);
+			newValue = `${eur(amount)} confermato${note ? ` (${note})` : ""}`;
+			break;
+		}
+		case "unconfirm":
+			if (s.costState !== "confirmed") return c.json({ error: s.costState === "loaded" ? "Il costo è già inserito: prima va tolto l'inserito." : "Il costo non è confermato." }, 400);
+			stmt = db.prepare("DELETE FROM supplier_invoices_costs WHERE month = ? AND supplier = ?").bind(month, s.supplier);
+			newValue = "conferma annullata";
+			break;
+		case "loaded":
+			if (s.costState !== "confirmed") return c.json({ error: "Si segna come inserito solo un costo confermato e non ancora inserito." }, 400);
+			stmt = db.prepare("UPDATE supplier_invoices_costs SET loaded_at = datetime('now'), loaded_by = ? WHERE month = ? AND supplier = ?").bind(by, month, s.supplier);
+			newValue = "inserito nel backadmin";
+			break;
+		default:
+			if (s.costState !== "loaded") return c.json({ error: "Il costo non risulta inserito." }, 400);
+			stmt = db.prepare("UPDATE supplier_invoices_costs SET loaded_at = NULL, loaded_by = '' WHERE month = ? AND supplier = ?").bind(month, s.supplier);
+			newValue = "inserito annullato";
+	}
+	await db.batch([stmt, logStmt(db, "cost", `${month}|${s.supplier}`, "cost", fmt(s.cost), newValue, by)]);
+	return c.json(await monthView(db, month));
+});
+
+api.get("/costs/:month/log", async (c) => {
+	const supplier = c.req.query("supplier") ?? "";
+	return c.json(await readLog(c.env.DB, "cost", `${c.req.param("month")}|${supplier}`));
 });
 
 // Coda di tutti i mesi; con ?open=1 solo le righe ancora da decidere.
@@ -84,14 +158,14 @@ api.get("/queue", async (c) => {
 	return c.json(results.map(toItem));
 });
 
-async function readLog(db: D1Database, kind: "queue" | "agreement", id: string): Promise<LogEntry[]> {
+async function readLog(db: D1Database, kind: "queue" | "agreement" | "cost", id: string): Promise<LogEntry[]> {
 	const { results } = await db.prepare(
 		"SELECT field, old_value, new_value, changed_by, changed_at FROM supplier_invoices_log WHERE item_kind = ? AND item_id = ? ORDER BY id DESC",
 	).bind(kind, id).all<{ field: string; old_value: string | null; new_value: string | null; changed_by: string; changed_at: string }>();
 	return results.map((r) => ({ field: r.field, oldValue: r.old_value, newValue: r.new_value, changedBy: r.changed_by, changedAt: r.changed_at }));
 }
 
-const logStmt = (db: D1Database, kind: "queue" | "agreement", id: string, field: string, oldValue: string, newValue: string, by: string) =>
+const logStmt = (db: D1Database, kind: "queue" | "agreement" | "cost", id: string, field: string, oldValue: string, newValue: string, by: string) =>
 	db.prepare("INSERT INTO supplier_invoices_log (item_kind, item_id, field, old_value, new_value, changed_by) VALUES (?, ?, ?, ?, ?, ?)")
 		.bind(kind, id, field, oldValue, newValue, by);
 

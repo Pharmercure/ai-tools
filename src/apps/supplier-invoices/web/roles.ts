@@ -4,10 +4,10 @@ import { useState } from "react";
 // L'utente principale è il responsabile dei rapporti con i fornitori: vede e decide tutto; la
 // gestione operativa interviene solo sulle righe per cui lui chiede supporto.
 export const ROLES = {
-	responsabile: { label: "Responsabile fornitori", help: "Tutto quello che c'è da decidere: scostamenti del mese e punti aperti con i fornitori." },
+	responsabile: { label: "Responsabile fornitori", help: "Tutto quello che c'è da decidere (scostamenti del mese e punti aperti con i fornitori) e i costi da confermare." },
 	cs: { label: "Gestione operativa", help: "Le verifiche per cui il responsabile fornitori ha chiesto supporto." },
-	amministrazione: { label: "Amministrazione", help: "I costi pronti per il backadmin, quelli che restano al previsto e le fatture che aspettiamo." },
-	referente: { label: "Referente", help: "L'avanzamento del mese e chi ha in mano cosa: si guarda, non si decide." },
+	amministrazione: { label: "Amministrazione", help: "A che punto sono i costi del mese: inseriti, confermati, ancora al previsto, fatture in arrivo." },
+	referente: { label: "Referente", help: "I costi confermati da inserire nel backadmin e l'avanzamento del mese." },
 } as const;
 export type Role = keyof typeof ROLES;
 

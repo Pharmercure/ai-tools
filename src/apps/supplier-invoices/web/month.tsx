@@ -24,12 +24,14 @@ export function MonthStatus({ v }: { v: MonthView }) {
 	const ok = s.filter((x) => x.outcome === "ok").length;
 	const open = v.queue.filter((q) => OPEN_VERDICTS.includes(q.verdict));
 	const openEur = open.reduce((a, q) => a + Math.max(0, q.amount ?? 0), 0);
-	const ready = s.filter((x) => x.costState === "actual_ready").length;
+	const toConfirm = s.filter((x) => x.costState === "to_confirm").length;
+	const loaded = s.filter((x) => x.costState === "loaded").length;
 	const items: [string, string][] = [
 		["Fatture arrivate", `${arrived} su ${s.length}`],
 		["Tornano", `${ok} su ${arrived}`],
 		["Da decidere", `${open.length}${openEur ? ` · ${eur(openEur)}` : ""}`],
-		["Costo effettivo pronto", `${ready} fornitori`],
+		["Costi da confermare", `${toConfirm}`],
+		["Inseriti nel backadmin", `${loaded} su ${s.length}`],
 	];
 	return (
 		<Paper sx={{ p: 1.5, mb: 2, display: "flex", flexWrap: "wrap", gap: { xs: 1.5, sm: 3 }, alignItems: "baseline" }}>
@@ -77,9 +79,11 @@ function SupplierRow({ s }: { s: Supplier }) {
 }
 
 const GROUPS: { key: string; title: string; help: string; test: (s: Supplier) => boolean }[] = [
-	{ key: "open", title: "Da decidere", help: "La fattura non coincide e c'è almeno uno scostamento aperto: per ora si carica solo il costo previsto.", test: (s) => s.invoiced !== null && s.openItems > 0 },
-	{ key: "ok", title: "Pronti", help: "La fattura torna, o tutti gli scostamenti sono decisi: si può caricare il costo effettivo.", test: (s) => s.costState === "actual_ready" },
-	{ key: "missing", title: "In attesa della fattura", help: "La fattura del mese non è ancora arrivata.", test: (s) => s.invoiced === null },
+	{ key: "open", title: "Da decidere", help: "La fattura non coincide e c'è almeno uno scostamento aperto: per ora resta il costo previsto.", test: (s) => s.costState === "expected_only" },
+	{ key: "confirm", title: "Costo da confermare", help: "La fattura torna, o tutti gli scostamenti sono decisi: il responsabile fornitori conferma il costo effettivo.", test: (s) => s.costState === "to_confirm" },
+	{ key: "confirmed", title: "Confermati, da inserire nel backadmin", help: "Il costo effettivo è confermato: manca solo l'inserimento nel backadmin.", test: (s) => s.costState === "confirmed" },
+	{ key: "loaded", title: "Inseriti nel backadmin", help: "Il mese di questo fornitore è chiuso.", test: (s) => s.costState === "loaded" },
+	{ key: "missing", title: "In attesa della fattura", help: "La fattura del mese non è ancora arrivata.", test: (s) => s.costState === "no_invoice" },
 ];
 
 export function MonthPage() {

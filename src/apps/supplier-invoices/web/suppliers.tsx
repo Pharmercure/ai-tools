@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router";
 import { OPEN_VERDICTS } from "../api/types";
 import { AgreementSummary, GapCard, isOpenGap } from "./agreements";
 import { COST, OUTCOME, date, dateTime, eur, monthName, signedEur, supplierPath } from "./format";
+import { CostState } from "./costs";
 import { diffOf, useMonth } from "./month";
 import { QueueCards } from "./queue";
 import { useGetAgreementsQuery, useGetQueueQuery } from "./store";
@@ -103,10 +104,10 @@ export function SupplierPage() {
 							<Line label="Previsto (nostro calcolo)" value={eur(m.expected)} />
 							<Line label="Fattura" value={eur(m.invoiced)} />
 							<Line label="Differenza" value={diff === null ? "–" : signedEur(diff)} strong={!!diff} />
-							<Box>
-								<Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>Costo da caricare</Typography>
-								<Chip size="small" color={COST[m.costState].tone} label={COST[m.costState].label} />
-							</Box>
+						</Box>
+						<Box sx={{ mb: 1.5, pb: 1.5, borderBottom: 1, borderColor: "divider" }}>
+							<Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>Costo effettivo</Typography>
+							<CostState month={view.data.month} s={m} />
 						</Box>
 						<Typography variant="body2" sx={{ mb: 0.5 }}>
 							<b>{OUTCOME[m.outcome].label}.</b>{" "}
