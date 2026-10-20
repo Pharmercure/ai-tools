@@ -193,6 +193,11 @@ api.patch("/queue/:id", async (c) => {
 
 	const row = await c.env.DB.prepare("SELECT * FROM supplier_invoices_queue WHERE id = ?").bind(id).first<QueueRow>();
 	if (!row) return c.json({ error: "riga non trovata" }, 404);
+	// Cambiare un verdetto cambia il costo del fornitore: se il costo del mese è già confermato, prima si annulla la conferma.
+	if (body.verdict !== undefined && body.verdict !== row.verdict) {
+		const cost = await c.env.DB.prepare("SELECT 1 FROM supplier_invoices_costs WHERE month = ? AND supplier = ?").bind(row.month, row.supplier).first();
+		if (cost) return c.json({ error: "Il costo di questo fornitore è già confermato: per cambiare il verdetto prima annulla la conferma dalla sua pagina." }, 409);
+	}
 	const stmts = [];
 	for (const [field, value] of changes) {
 		if (row[field] === value) continue;

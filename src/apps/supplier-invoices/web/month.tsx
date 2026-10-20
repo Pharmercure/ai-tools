@@ -2,7 +2,7 @@ import { Alert, Box, Chip, CircularProgress, MenuItem, Paper, TextField, Typogra
 import { useState } from "react";
 import { Link } from "react-router";
 import { type MonthView, OPEN_VERDICTS } from "../api/types";
-import { COST, dateTime, eur, monthName, signedEur } from "./format";
+import { COST, dateTime, eur, monthName, signedEur, toClarify } from "./format";
 import { usePaths } from "./links";
 import { useGetMonthQuery, useGetMonthsQuery } from "./store";
 
@@ -47,14 +47,14 @@ export function MonthStatus({ v }: { v: MonthView }) {
 	);
 }
 
-function SupplierRow({ s }: { s: Supplier }) {
+function SupplierRow({ s, open }: { s: Supplier; open: number }) {
 	const paths = usePaths();
 	const diff = diffOf(s);
 	return (
 		<Box
 			component={Link} to={paths.supplier(s.supplier)}
 			sx={{
-				display: "grid", gridTemplateColumns: { xs: "1fr auto", sm: "minmax(160px, 1.4fr) 1fr 1fr 1fr auto" }, gap: 1, alignItems: "center",
+				display: "grid", gridTemplateColumns: { xs: "1fr auto", sm: "minmax(160px, 1.4fr) 1fr 1fr 1fr 1fr 190px" }, gap: 1, alignItems: "center",
 				px: 1.5, py: 1, color: "inherit", textDecoration: "none", borderTop: 1, borderColor: "divider",
 				"&:hover": { bgcolor: "action.hover" },
 			}}
@@ -73,9 +73,14 @@ function SupplierRow({ s }: { s: Supplier }) {
 			</Box>
 			<Box sx={{ display: { xs: "none", sm: "block" } }}>
 				<Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>Differenza</Typography>
-				<Typography variant="body2" sx={{ fontVariantNumeric: "tabular-nums", fontWeight: diff ? 700 : 400 }}>{diff === null ? "–" : signedEur(diff)}</Typography>
+				<Typography variant="body2" sx={{ fontVariantNumeric: "tabular-nums" }}>{diff === null ? "–" : signedEur(diff)}</Typography>
+				{diff !== null && diff < 0 && <Typography variant="caption" color="text.secondary">a nostro favore</Typography>}
 			</Box>
-			<Chip size="small" color={COST[s.costState].tone} variant={s.costState === "no_invoice" ? "outlined" : "filled"} label={COST[s.costState].label} />
+			<Box sx={{ display: { xs: "none", sm: "block" } }}>
+				<Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>Da chiarire</Typography>
+				<Typography variant="body2" sx={{ fontVariantNumeric: "tabular-nums", fontWeight: open ? 700 : 400 }}>{open ? eur(open) : "–"}</Typography>
+			</Box>
+			<Chip size="small" sx={{ justifySelf: "start" }} color={COST[s.costState].tone} variant={s.costState === "no_invoice" ? "outlined" : "filled"} label={COST[s.costState].label} />
 		</Box>
 	);
 }
@@ -107,7 +112,7 @@ export function MonthPage() {
 					{months.data.map((m) => <MenuItem key={m.month} value={m.month}>{monthName(m.month)}{m.openItems ? ` · ${m.openItems} da decidere` : ""}</MenuItem>)}
 				</TextField>
 				<Typography variant="caption" color="text.secondary">
-					Dati del {dateTime(v.extractedAt)}. Importi senza IVA. Il previsto è il nostro calcolo dalle consegne con l'accordo del fornitore.
+					Dati del {dateTime(v.extractedAt)}. Importi senza IVA. Il previsto è il nostro calcolo dalle consegne con l'accordo del fornitore (per il Binario A, il riepilogo mandato al fornitore). "Da chiarire" è la parte della differenza ancora aperta, la stessa di "Da fare": quella già decisa o a nostro favore non conta.
 				</Typography>
 			</Box>
 			<MonthStatus v={v} />
@@ -121,7 +126,7 @@ export function MonthPage() {
 						<Typography variant="h2" component="h2">{g.title} ({list.length})</Typography>
 						<Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>{g.help}</Typography>
 						<Paper sx={{ overflow: "hidden", "& > a:first-of-type": { borderTop: 0 } }}>
-							{list.map((s) => <SupplierRow key={s.supplier} s={s} />)}
+							{list.map((s) => <SupplierRow key={s.supplier} s={s} open={toClarify(v.queue, s.supplier)} />)}
 						</Paper>
 					</Box>
 				);
@@ -130,7 +135,7 @@ export function MonthPage() {
 				<Box sx={{ mb: 2 }}>
 					<Typography variant="h2" component="h2">Altri</Typography>
 					<Paper sx={{ overflow: "hidden" }}>
-						{v.suppliers.filter((s) => !seen.has(s.supplier)).map((s) => <SupplierRow key={s.supplier} s={s} />)}
+						{v.suppliers.filter((s) => !seen.has(s.supplier)).map((s) => <SupplierRow key={s.supplier} s={s} open={toClarify(v.queue, s.supplier)} />)}
 					</Paper>
 				</Box>
 			)}

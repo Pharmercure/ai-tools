@@ -2,7 +2,7 @@ import { Accordion, AccordionDetails, AccordionSummary, Alert, Box, Chip, Circul
 import { Link, useParams } from "react-router";
 import { OPEN_VERDICTS } from "../api/types";
 import { AgreementSummary, GapCard, isOpenGap } from "./agreements";
-import { COST, OUTCOME, date, dateTime, eur, monthName, signedEur } from "./format";
+import { COST, OUTCOME, date, dateTime, eur, monthName, signedEur, toClarify } from "./format";
 import { usePaths } from "./links";
 import { CostStatus } from "./costs";
 import { diffOf, useMonth } from "./month";
@@ -91,6 +91,7 @@ export function SupplierPage() {
 	const doneGaps = a?.gaps.filter((g) => !isOpenGap(g, states)) ?? [];
 	if (!m && !a && !items.length) return <Alert severity="info">Nessun dato per «{name}». <Link to={paths.page("suppliers")}>Torna ai fornitori</Link></Alert>;
 	const diff = m ? diffOf(m) : null;
+	const clarify = m && view.data ? toClarify(view.data.queue, m.supplier) : 0;
 
 	return (
 		<Box>
@@ -108,7 +109,8 @@ export function SupplierPage() {
 						<Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 2, mb: 1.5 }}>
 							<Line label="Previsto (nostro calcolo)" value={eur(m.expected)} />
 							<Line label="Fattura" value={eur(m.invoiced)} />
-							<Line label="Differenza" value={diff === null ? "–" : signedEur(diff)} strong={!!diff} />
+							<Line label={diff !== null && diff < 0 ? "Differenza (a nostro favore)" : "Differenza"} value={diff === null ? "–" : signedEur(diff)} />
+							<Line label="Da chiarire" value={clarify ? eur(clarify) : "–"} strong={clarify > 0} />
 						</Box>
 						<Box sx={{ mb: 1.5, pb: 1.5, borderBottom: 1, borderColor: "divider" }}>
 							<Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>Costo effettivo</Typography>

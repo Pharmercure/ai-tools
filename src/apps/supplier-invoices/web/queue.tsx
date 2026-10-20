@@ -1,7 +1,7 @@
 import { Alert, Box, Button, Chip, CircularProgress, Paper, TextField, Typography } from "@mui/material";
 import { useState } from "react";
 import { Link } from "react-router";
-import { OPEN_VERDICTS, type Owner, type QueueItem, type Verdict } from "../api/types";
+import type { Owner, QueueItem, Verdict } from "../api/types";
 import { OWNER_LABEL, VERDICT, VERDICT_ORDER, dateTime, monthName, signedEur } from "./format";
 import { usePaths } from "./links";
 import { useGetLogQuery, useUpdateItemMutation } from "./store";
@@ -43,7 +43,6 @@ export function QueueCard({ item, showSupplier = true, showMonth = false }: { it
 	const [note, setNote] = useState(item.note);
 	const [noteOpen, setNoteOpen] = useState(false);
 	const [showLog, setShowLog] = useState(false);
-	const open = OPEN_VERDICTS.includes(item.verdict);
 	const save = (body: { verdict?: Verdict; owner?: Owner; note?: string }) => void update({ id: item.id, ...body });
 
 	return (
@@ -67,6 +66,11 @@ export function QueueCard({ item, showSupplier = true, showMonth = false }: { it
 				</Typography>
 			)}
 
+			{item.verdict === "to_check" && (
+				<Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+					Cosa ne pensi? Passa sopra un pulsante per vedere cosa succede; la scelta si può sempre annullare.
+				</Typography>
+			)}
 			<Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, alignItems: "center" }} role="group" aria-label="Verdetto">
 				{VERDICT_ORDER.filter((v) => v !== "to_check" || item.verdict === "to_check").map((v) => (
 					<Chip
@@ -76,8 +80,13 @@ export function QueueCard({ item, showSupplier = true, showMonth = false }: { it
 					/>
 				))}
 			</Box>
-			{!open && (
-				<Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>{VERDICT[item.verdict].help}</Typography>
+			{item.verdict !== "to_check" && (
+				<Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+					<b>Cosa succede ora:</b> {VERDICT[item.verdict].help}{" "}
+					<Box component="button" type="button" sx={textButtonSx} disabled={saving} onClick={() => save({ verdict: "to_check" })}>
+						Annulla la scelta
+					</Box>
+				</Typography>
 			)}
 
 			{(noteOpen || item.note) && (
@@ -89,7 +98,7 @@ export function QueueCard({ item, showSupplier = true, showMonth = false }: { it
 					<Button variant="outlined" disabled={saving || note.trim() === item.note} onClick={() => save({ note })}>Salva</Button>
 				</Box>
 			)}
-			{error && <Alert severity="error" sx={{ mt: 1 }}>Modifica non salvata: riprova o ricarica la pagina.</Alert>}
+			{error && <Alert severity="error" sx={{ mt: 1 }}>{(error as { data?: { error?: string } }).data?.error ?? "Modifica non salvata: riprova o ricarica la pagina."}</Alert>}
 
 			<Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1.5, mt: 1.25 }}>
 				{item.owner === "operations" ? (
