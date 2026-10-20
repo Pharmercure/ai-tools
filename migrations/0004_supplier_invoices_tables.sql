@@ -22,13 +22,13 @@ CREATE TABLE supplier_invoices_queue (
 	month TEXT NOT NULL,
 	supplier TEXT NOT NULL,
 	invoice TEXT NOT NULL DEFAULT '',
-	owner TEXT NOT NULL CHECK (owner IN ('CS', 'Logistica')),
+	owner TEXT NOT NULL CHECK (owner IN ('operations', 'supplier_owner')),
 	deliveries TEXT NOT NULL DEFAULT '',
 	-- positivo: il fornitore chiede più di quanto calcolato da noi; null se non quantificabile
 	amount REAL,
 	check_text TEXT NOT NULL DEFAULT '',
-	verdict TEXT NOT NULL DEFAULT 'da_verificare'
-		CHECK (verdict IN ('da_verificare', 'non_verificabile', 'ragione_nostra', 'ragione_loro', 'ignorato')),
+	verdict TEXT NOT NULL DEFAULT 'to_check'
+		CHECK (verdict IN ('to_check', 'needs_detail', 'dispute', 'invoice_correct', 'ignored')),
 	note TEXT NOT NULL DEFAULT '',
 	created_at TEXT NOT NULL DEFAULT (datetime('now')),
 	updated_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -43,7 +43,7 @@ CREATE TABLE supplier_invoices_agreement_items (
 	id TEXT PRIMARY KEY,
 	supplier TEXT NOT NULL,
 	topic TEXT NOT NULL,
-	status TEXT NOT NULL DEFAULT 'aperto' CHECK (status IN ('aperto', 'in_discussione', 'chiuso')),
+	status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'in_discussion', 'closed')),
 	outcome TEXT NOT NULL DEFAULT '',
 	created_at TEXT NOT NULL DEFAULT (datetime('now')),
 	updated_at TEXT NOT NULL DEFAULT (datetime('now')),

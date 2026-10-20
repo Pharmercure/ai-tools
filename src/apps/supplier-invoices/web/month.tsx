@@ -2,7 +2,8 @@ import { Alert, Box, Chip, CircularProgress, MenuItem, Paper, TextField, Typogra
 import { useState } from "react";
 import { Link } from "react-router";
 import { type MonthView, OPEN_VERDICTS } from "../api/types";
-import { COST, dateTime, eur, monthName, signedEur, supplierPath } from "./format";
+import { COST, dateTime, eur, monthName, signedEur } from "./format";
+import { usePaths } from "./links";
 import { useGetMonthQuery, useGetMonthsQuery } from "./store";
 
 type Supplier = MonthView["suppliers"][number];
@@ -47,10 +48,11 @@ export function MonthStatus({ v }: { v: MonthView }) {
 }
 
 function SupplierRow({ s }: { s: Supplier }) {
+	const paths = usePaths();
 	const diff = diffOf(s);
 	return (
 		<Box
-			component={Link} to={supplierPath(s.supplier)}
+			component={Link} to={paths.supplier(s.supplier)}
 			sx={{
 				display: "grid", gridTemplateColumns: { xs: "1fr auto", sm: "minmax(160px, 1.4fr) 1fr 1fr 1fr auto" }, gap: 1, alignItems: "center",
 				px: 1.5, py: 1, color: "inherit", textDecoration: "none", borderTop: 1, borderColor: "divider",

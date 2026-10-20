@@ -23,15 +23,15 @@ export const date = (iso: string) => new Date(iso.length === 10 ? iso + "T12:00:
 type Tone = "success" | "warning" | "error" | "info" | "default";
 
 export const VERDICT: Record<Verdict, { label: string; help: string; tone: Tone }> = {
-	da_verificare: { label: "Da verificare", help: "Nessuno ha ancora deciso.", tone: "warning" },
-	non_verificabile: { label: "Serve il dettaglio", help: "Senza il dettaglio consegna per consegna del fornitore non si può verificare.", tone: "warning" },
-	ragione_loro: { label: "Fattura corretta", help: "Il fornitore ha ragione: si aggiorna il nostro calcolo o l'accordo scritto.", tone: "success" },
-	ragione_nostra: { label: "Da contestare", help: "Il fornitore ha sbagliato: si chiede la correzione.", tone: "error" },
-	ignorato: { label: "Ignorato", help: "Non si controlla, per esempio perché molto piccolo.", tone: "default" },
+	to_check: { label: "Da verificare", help: "Nessuno ha ancora deciso.", tone: "warning" },
+	needs_detail: { label: "Serve il dettaglio", help: "Senza il dettaglio consegna per consegna del fornitore non si può verificare.", tone: "warning" },
+	invoice_correct: { label: "Fattura corretta", help: "Il fornitore ha ragione: si aggiorna il nostro calcolo o l'accordo scritto.", tone: "success" },
+	dispute: { label: "Da contestare", help: "Il fornitore ha sbagliato: si chiede la correzione.", tone: "error" },
+	ignored: { label: "Ignorato", help: "Non si controlla, per esempio perché molto piccolo.", tone: "default" },
 };
 
 // Ordine in cui i verdetti compaiono come pulsanti: prima le decisioni, poi gli stati di attesa.
-export const VERDICT_ORDER: Verdict[] = ["ragione_loro", "ragione_nostra", "non_verificabile", "ignorato", "da_verificare"];
+export const VERDICT_ORDER: Verdict[] = ["invoice_correct", "dispute", "needs_detail", "ignored", "to_check"];
 
 export const OUTCOME: Record<SupplierMonth["outcome"], { label: string; tone: Tone }> = {
 	ok: { label: "Torna", tone: "success" },
@@ -48,8 +48,7 @@ export const COST: Record<CostState, { label: string; tone: Tone }> = {
 	loaded: { label: "Inserito nel backadmin", tone: "default" },
 };
 
-export const supplierPath = (name: string) => `/supplier-invoices/suppliers/${encodeURIComponent(name)}`;
 
-// Chi ha in mano una riga: il responsabile fornitori ("Logistica" nel database) o, se ha chiesto
-// supporto, la gestione operativa ("CS").
-export const OWNER_LABEL = { Logistica: "responsabile fornitori", CS: "gestione operativa" } as const;
+// Chi ha in mano una riga: il responsabile fornitori ("supplier_owner" nel database) o, se ha chiesto
+// supporto, la gestione operativa ("operations").
+export const OWNER_LABEL = { supplier_owner: "responsabile fornitori", operations: "gestione operativa" } as const;

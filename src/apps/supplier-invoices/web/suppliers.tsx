@@ -2,20 +2,23 @@ import { Accordion, AccordionDetails, AccordionSummary, Alert, Box, Chip, Circul
 import { Link, useParams } from "react-router";
 import { OPEN_VERDICTS } from "../api/types";
 import { AgreementSummary, GapCard, isOpenGap } from "./agreements";
-import { COST, OUTCOME, date, dateTime, eur, monthName, signedEur, supplierPath } from "./format";
-import { CostState } from "./costs";
+import { COST, OUTCOME, date, dateTime, eur, monthName, signedEur } from "./format";
+import { usePaths } from "./links";
+import { CostStatus } from "./costs";
 import { diffOf, useMonth } from "./month";
 import { QueueCards } from "./queue";
-import { useGetAgreementsQuery, useGetQueueQuery } from "./store";
+import { failed, useGetAgreementsQuery, useGetQueueQuery } from "./store";
 import { UbmPage } from "./ubm";
 
 const UBM = "UBM Bologna";
 
 export function SuppliersPage() {
-	const { view } = useMonth();
+	const paths = usePaths();
+	const { months, view } = useMonth();
 	const queue = useGetQueueQuery(true);
 	const agreements = useGetAgreementsQuery();
 	if (view.isLoading || queue.isLoading || agreements.isLoading) return <CircularProgress />;
+	if ([months, view, queue, agreements].some(failed)) return <Alert severity="error">Impossibile caricare i dati: riprova o ricarica la pagina.</Alert>;
 	const states = agreements.data?.states ?? {};
 	const names = [...new Set([
 		...(view.data?.suppliers.map((s) => s.supplier) ?? []),
@@ -39,7 +42,7 @@ export function SuppliersPage() {
 			<Paper sx={{ overflow: "hidden" }}>
 				{rows.map(({ n, m, a, open }, i) => (
 					<Box
-						key={n} component={Link} to={supplierPath(n)}
+						key={n} component={Link} to={paths.supplier(n)}
 						sx={{
 							display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1, px: 1.5, py: 1.1, color: "inherit", textDecoration: "none",
 							borderTop: i ? 1 : 0, borderColor: "divider", "&:hover": { bgcolor: "action.hover" },
@@ -70,11 +73,13 @@ function Line({ label, value, strong }: { label: string; value: string; strong?:
 }
 
 export function SupplierPage() {
-	const name = decodeURIComponent(useParams()["*"] ?? "");
-	const { view } = useMonth();
+	const name = useParams()["*"] ?? "";
+	const paths = usePaths();
+	const { months, view } = useMonth();
 	const queue = useGetQueueQuery(false);
 	const agreements = useGetAgreementsQuery();
 	if (view.isLoading || queue.isLoading || agreements.isLoading) return <CircularProgress />;
+	if ([months, view, queue, agreements].some(failed)) return <Alert severity="error">Impossibile caricare i dati: riprova o ricarica la pagina.</Alert>;
 
 	const m = view.data?.suppliers.find((s) => s.supplier === name);
 	const a = agreements.data?.suppliers.find((x) => x.supplier === name);
@@ -84,12 +89,12 @@ export function SupplierPage() {
 	const doneItems = items.filter((q) => !OPEN_VERDICTS.includes(q.verdict));
 	const openGaps = a?.gaps.filter((g) => isOpenGap(g, states)) ?? [];
 	const doneGaps = a?.gaps.filter((g) => !isOpenGap(g, states)) ?? [];
-	if (!m && !a && !items.length) return <Alert severity="info">Nessun dato per «{name}». <Link to="/supplier-invoices/suppliers">Torna ai fornitori</Link></Alert>;
+	if (!m && !a && !items.length) return <Alert severity="info">Nessun dato per «{name}». <Link to={paths.page("suppliers")}>Torna ai fornitori</Link></Alert>;
 	const diff = m ? diffOf(m) : null;
 
 	return (
 		<Box>
-			<Box component={Link} to="/supplier-invoices/suppliers" sx={{ fontSize: 13, color: "text.secondary", textDecoration: "none", "&:hover": { textDecoration: "underline" } }}>← Tutti i fornitori</Box>
+			<Box component={Link} to={paths.page("suppliers")} sx={{ fontSize: 13, color: "text.secondary", textDecoration: "none", "&:hover": { textDecoration: "underline" } }}>← Tutti i fornitori</Box>
 			<Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1, mt: 0.5, mb: 2 }}>
 				<Typography variant="h1" component="h2" sx={{ fontSize: 22 }}>{name}</Typography>
 				{m && <Chip size="small" variant="outlined" label={`Binario ${m.track}`} title={m.track === "A" ? "Il 1° del mese gli mandiamo noi il riepilogo da fatturare" : "Aspettiamo la fattura e la confrontiamo con il nostro calcolo"} />}
@@ -107,7 +112,7 @@ export function SupplierPage() {
 						</Box>
 						<Box sx={{ mb: 1.5, pb: 1.5, borderBottom: 1, borderColor: "divider" }}>
 							<Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>Costo effettivo</Typography>
-							<CostState month={view.data.month} s={m} />
+							<CostStatus month={view.data.month} s={m} />
 						</Box>
 						<Typography variant="body2" sx={{ mb: 0.5 }}>
 							<b>{OUTCOME[m.outcome].label}.</b>{" "}

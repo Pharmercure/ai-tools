@@ -2,20 +2,21 @@ import { Alert, Box, Button, Chip, CircularProgress, Paper, TextField, Typograph
 import { useState } from "react";
 import { Link } from "react-router";
 import type { AgreementGap, AgreementItemState, AgreementItemStatus, SupplierAgreement } from "../api/types";
-import { dateTime, supplierPath } from "./format";
+import { dateTime } from "./format";
+import { usePaths } from "./links";
 import { useGetAgreementLogQuery, useUpdateAgreementItemMutation } from "./store";
 
 export const ITEM_STATUS: Record<AgreementItemStatus, { label: string; tone: "warning" | "info" | "success" }> = {
-	aperto: { label: "Aperto", tone: "warning" },
-	in_discussione: { label: "In discussione", tone: "info" },
-	chiuso: { label: "Chiuso", tone: "success" },
+	open: { label: "Aperto", tone: "warning" },
+	in_discussion: { label: "In discussione", tone: "info" },
+	closed: { label: "Chiuso", tone: "success" },
 };
 
 const FIELD_LABEL: Record<string, string> = { status: "stato", outcome: "esito" };
 const valueLabel = (field: string, v: string | null) =>
 	!v ? "vuoto" : field === "status" ? ITEM_STATUS[v as AgreementItemStatus]?.label ?? v : v;
 
-export const isOpenGap = (g: AgreementGap, states: Record<string, AgreementItemState>) => (states[g.id]?.status ?? "aperto") !== "chiuso";
+export const isOpenGap = (g: AgreementGap, states: Record<string, AgreementItemState>) => (states[g.id]?.status ?? "open") !== "closed";
 
 export function Bullets({ items }: { items: string[] }) {
 	if (!items.length) return <Typography variant="body2" color="text.secondary">–</Typography>;
@@ -56,18 +57,19 @@ const textButtonSx = { all: "unset", cursor: "pointer", color: "primary.main", f
 /** Un punto in cui ciò che applica il fornitore non coincide con il nostro accordo: fatti, domanda aperta, esito. */
 export function GapCard({ g, state, supplier }: { g: AgreementGap; state: AgreementItemState | undefined; supplier?: string }) {
 	const [update, { isLoading: saving, error }] = useUpdateAgreementItemMutation();
-	const status = state?.status ?? "aperto";
+	const paths = usePaths();
+	const status = state?.status ?? "open";
 	const [outcome, setOutcome] = useState(state?.outcome ?? "");
 	const [showLog, setShowLog] = useState(false);
 	const errText = error && "data" in error ? (error.data as { error?: string })?.error : undefined;
-	const closed = status === "chiuso";
+	const closed = status === "closed";
 
 	return (
 		<Paper sx={{ p: 2 }}>
 			<Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 1, mb: 1 }}>
 				{supplier && (
 					<Typography variant="h2" component="h3">
-						<Box component={Link} to={supplierPath(supplier)} sx={{ color: "inherit", textDecoration: "none", "&:hover": { textDecoration: "underline" } }}>{supplier}</Box>
+						<Box component={Link} to={paths.supplier(supplier)} sx={{ color: "inherit", textDecoration: "none", "&:hover": { textDecoration: "underline" } }}>{supplier}</Box>
 					</Typography>
 				)}
 				<Typography sx={{ fontWeight: 600 }}>{g.topic}</Typography>
@@ -92,7 +94,7 @@ export function GapCard({ g, state, supplier }: { g: AgreementGap; state: Agreem
 					<Chip
 						key={s} label={ITEM_STATUS[s].label} disabled={saving}
 						color={status === s ? ITEM_STATUS[s].tone : "default"} variant={status === s ? "filled" : "outlined"}
-						onClick={status === s ? undefined : () => void update({ id: g.id, status: s, ...(s === "chiuso" ? { outcome } : {}) })}
+						onClick={status === s ? undefined : () => void update({ id: g.id, status: s, ...(s === "closed" ? { outcome } : {}) })}
 					/>
 				))}
 			</Box>

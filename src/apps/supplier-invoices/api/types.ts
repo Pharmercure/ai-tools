@@ -3,11 +3,11 @@
 // sul computer del referente, procedura nella KB "Verifica mensile delle fatture dei fornitori
 // esterni") e li carica con POST /api/supplier-invoices/import.
 
-export const VERDICTS = ["da_verificare", "non_verificabile", "ragione_nostra", "ragione_loro", "ignorato"] as const;
+export const VERDICTS = ["to_check", "needs_detail", "dispute", "invoice_correct", "ignored"] as const;
 export type Verdict = (typeof VERDICTS)[number];
-export const OPEN_VERDICTS: readonly Verdict[] = ["da_verificare", "non_verificabile"];
+export const OPEN_VERDICTS: readonly Verdict[] = ["to_check", "needs_detail"];
 
-export const OWNERS = ["CS", "Logistica"] as const;
+export const OWNERS = ["operations", "supplier_owner"] as const;
 export type Owner = (typeof OWNERS)[number];
 
 export type Invoice = {
@@ -84,7 +84,7 @@ export type UbmImport = {
 // Accordi commerciali, per il responsabile dei rapporti con i fornitori: cosa prevede il nostro
 // accordo, cosa applica il fornitore e dove le due cose non coincidono. Si descrive il problema con
 // i fatti e quanto vale; come risolverlo lo decide il responsabile, che ne scrive l'esito.
-export const AGREEMENT_ITEM_STATUSES = ["aperto", "in_discussione", "chiuso"] as const;
+export const AGREEMENT_ITEM_STATUSES = ["open", "in_discussion", "closed"] as const;
 export type AgreementItemStatus = (typeof AGREEMENT_ITEM_STATUSES)[number];
 
 export type AgreementGap = {

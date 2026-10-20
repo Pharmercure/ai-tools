@@ -2,7 +2,8 @@ import { Alert, Box, Button, Chip, CircularProgress, Paper, TextField, Typograph
 import { useState } from "react";
 import { Link } from "react-router";
 import { OPEN_VERDICTS, type Owner, type QueueItem, type Verdict } from "../api/types";
-import { OWNER_LABEL, VERDICT, VERDICT_ORDER, dateTime, monthName, signedEur, supplierPath } from "./format";
+import { OWNER_LABEL, VERDICT, VERDICT_ORDER, dateTime, monthName, signedEur } from "./format";
+import { usePaths } from "./links";
 import { useGetLogQuery, useUpdateItemMutation } from "./store";
 
 const FIELD_LABEL: Record<string, string> = { verdict: "verdetto", owner: "in mano a", note: "nota" };
@@ -38,6 +39,7 @@ const textButtonSx = { all: "unset", cursor: "pointer", color: "primary.main", f
 /** Una riga della coda: il problema con i fatti, poi la decisione in un clic. */
 export function QueueCard({ item, showSupplier = true, showMonth = false }: { item: QueueItem; showSupplier?: boolean; showMonth?: boolean }) {
 	const [update, { isLoading: saving, error }] = useUpdateItemMutation();
+	const paths = usePaths();
 	const [note, setNote] = useState(item.note);
 	const [noteOpen, setNoteOpen] = useState(false);
 	const [showLog, setShowLog] = useState(false);
@@ -45,11 +47,11 @@ export function QueueCard({ item, showSupplier = true, showMonth = false }: { it
 	const save = (body: { verdict?: Verdict; owner?: Owner; note?: string }) => void update({ id: item.id, ...body });
 
 	return (
-		<Paper sx={{ p: 2, opacity: item.verdict === "ignorato" ? 0.65 : 1 }}>
+		<Paper sx={{ p: 2, opacity: item.verdict === "ignored" ? 0.65 : 1 }}>
 			<Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 1, mb: 0.75 }}>
 				{showSupplier && (
 					<Typography variant="h2" component="h3">
-						<Box component={Link} to={supplierPath(item.supplier)} sx={linkSx}>{item.supplier}</Box>
+						<Box component={Link} to={paths.supplier(item.supplier)} sx={linkSx}>{item.supplier}</Box>
 					</Typography>
 				)}
 				<Typography variant="body2" color="text.secondary">
@@ -66,7 +68,7 @@ export function QueueCard({ item, showSupplier = true, showMonth = false }: { it
 			)}
 
 			<Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, alignItems: "center" }} role="group" aria-label="Verdetto">
-				{VERDICT_ORDER.filter((v) => v !== "da_verificare" || item.verdict === "da_verificare").map((v) => (
+				{VERDICT_ORDER.filter((v) => v !== "to_check" || item.verdict === "to_check").map((v) => (
 					<Chip
 						key={v} label={VERDICT[v].label} title={VERDICT[v].help} disabled={saving}
 						color={item.verdict === v ? VERDICT[v].tone : "default"} variant={item.verdict === v ? "filled" : "outlined"}
@@ -90,13 +92,13 @@ export function QueueCard({ item, showSupplier = true, showMonth = false }: { it
 			{error && <Alert severity="error" sx={{ mt: 1 }}>Modifica non salvata: riprova o ricarica la pagina.</Alert>}
 
 			<Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1.5, mt: 1.25 }}>
-				{item.owner === "CS" ? (
+				{item.owner === "operations" ? (
 					<>
 						<Chip size="small" color="info" label="Supporto chiesto alla gestione operativa" />
-						<Box component="button" type="button" sx={textButtonSx} disabled={saving} onClick={() => save({ owner: "Logistica" })}>Riporta al responsabile</Box>
+						<Box component="button" type="button" sx={textButtonSx} disabled={saving} onClick={() => save({ owner: "supplier_owner" })}>Riporta al responsabile</Box>
 					</>
 				) : (
-					<Box component="button" type="button" sx={textButtonSx} disabled={saving} onClick={() => save({ owner: "CS" })}>Chiedi supporto alla gestione operativa</Box>
+					<Box component="button" type="button" sx={textButtonSx} disabled={saving} onClick={() => save({ owner: "operations" })}>Chiedi supporto alla gestione operativa</Box>
 				)}
 				{!noteOpen && !item.note && <Box component="button" type="button" sx={textButtonSx} onClick={() => setNoteOpen(true)}>Aggiungi una nota</Box>}
 				<Box component="button" type="button" sx={textButtonSx} onClick={() => setShowLog((v) => !v)}>{showLog ? "Nascondi storico" : "Storico"}</Box>

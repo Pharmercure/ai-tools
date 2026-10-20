@@ -226,7 +226,7 @@ api.get("/agreements", async (c) => {
 // Punti chiusi con il loro esito: la routine li legge per riportare le regole nel Registro Accordi.
 api.get("/agreements/outcomes", async (c) => {
 	const { results } = await c.env.DB.prepare(
-		"SELECT id, supplier, topic, outcome, updated_at, updated_by FROM supplier_invoices_agreement_items WHERE status = 'chiuso' ORDER BY updated_at DESC",
+		"SELECT id, supplier, topic, outcome, updated_at, updated_by FROM supplier_invoices_agreement_items WHERE status = 'closed' ORDER BY updated_at DESC",
 	).all();
 	return c.json(results);
 });
@@ -252,7 +252,7 @@ api.patch("/agreements/items/:id", async (c) => {
 	// Un punto si chiude solo con un esito scritto: è la regola che poi va nel Registro Accordi.
 	const finalStatus = changes.find(([f]) => f === "status")?.[1] ?? row.status;
 	const finalOutcome = changes.find(([f]) => f === "outcome")?.[1] ?? row.outcome;
-	if (finalStatus === "chiuso" && !finalOutcome) return c.json({ error: "Per chiudere un punto scrivi prima l'esito." }, 400);
+	if (finalStatus === "closed" && !finalOutcome) return c.json({ error: "Per chiudere un punto scrivi prima l'esito." }, 400);
 	const stmts = [];
 	for (const [field, value] of changes) {
 		if (row[field] === value) continue;

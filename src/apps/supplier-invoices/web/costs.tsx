@@ -52,7 +52,7 @@ export function ConfirmCost({ month, s }: { month: string; s: Supplier }) {
 }
 
 /** Dove è arrivato il costo effettivo e il passo successivo, per chi tocca. */
-export function CostState({ month, s, canConfirm = true, canLoad = true }: { month: string; s: Supplier; canConfirm?: boolean; canLoad?: boolean }) {
+export function CostStatus({ month, s, canConfirm = true, canLoad = true }: { month: string; s: Supplier; canConfirm?: boolean; canLoad?: boolean }) {
 	const [act, { isLoading, error }] = useCostActionMutation();
 	const c = s.cost;
 	const run = (action: "unconfirm" | "loaded" | "unloaded") => void act({ month, supplier: s.supplier, action });

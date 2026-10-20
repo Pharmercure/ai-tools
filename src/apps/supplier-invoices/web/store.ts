@@ -42,6 +42,9 @@ export const api = createApi({
 	}),
 });
 
+// Una lettura fallita davvero. Il 404 non conta: vuol dire che quei dati non sono ancora stati caricati.
+export const failed = (q: { isError: boolean; error?: unknown }) => q.isError && (q.error as { status?: unknown } | undefined)?.status !== 404;
+
 export const store = configureStore({
 	reducer: { [api.reducerPath]: api.reducer },
 	middleware: (getDefault) => getDefault().concat(api.middleware),

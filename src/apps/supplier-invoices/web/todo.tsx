@@ -3,12 +3,13 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { type AgreementGap, type AgreementItemState, type MonthView, OPEN_VERDICTS, type QueueItem } from "../api/types";
 import { GapCard, ITEM_STATUS, isOpenGap } from "./agreements";
-import { ConfirmCost, CostState } from "./costs";
-import { COST, date, eur, monthName, signedEur, supplierPath } from "./format";
+import { ConfirmCost, CostStatus } from "./costs";
+import { COST, date, eur, monthName, signedEur } from "./format";
+import { usePaths } from "./links";
 import { diffOf, useMonth } from "./month";
 import { QueueCards } from "./queue";
 import { ROLES, type Role, useRole } from "./roles";
-import { useGetAgreementsQuery, useGetQueueQuery } from "./store";
+import { failed, useGetAgreementsQuery, useGetQueueQuery } from "./store";
 
 const linkSx = { color: "inherit", fontWeight: 600, textDecoration: "none", "&:hover": { textDecoration: "underline" } } as const;
 type Supplier = MonthView["suppliers"][number];
@@ -66,6 +67,7 @@ const shortTitle = (q: QueueItem) => {
 
 /** La mappa di quello che c'è da fare: un fornitore per riga, cosa riguarda e quanto vale. */
 function Overview({ groups, states, linkToDetail }: { groups: Group[]; states: Record<string, AgreementItemState>; linkToDetail: boolean }) {
+	const paths = usePaths();
 	const go = (supplier: string) => document.getElementById(anchorOf(supplier))?.scrollIntoView({ behavior: "smooth", block: "start" });
 	const cols = { xs: "1fr", md: "minmax(180px, 1.2fr) 3fr 120px 170px" };
 	return (
@@ -77,8 +79,8 @@ function Overview({ groups, states, linkToDetail }: { groups: Group[]; states: R
 			</Box>
 			{groups.map(({ supplier, items, gaps, total }) => {
 				const topics = [...gaps.map((g) => g.topic), ...(gaps.length ? [] : items.map(shortTitle))];
-				const support = items.filter((q) => q.owner === "CS").length;
-				const talking = gaps.filter((g) => states[g.id]?.status === "in_discussione").length;
+				const support = items.filter((q) => q.owner === "operations").length;
+				const talking = gaps.filter((g) => states[g.id]?.status === "in_discussion").length;
 				return (
 					<Box
 						key={supplier} onClick={linkToDetail ? () => go(supplier) : undefined}
@@ -88,7 +90,7 @@ function Overview({ groups, states, linkToDetail }: { groups: Group[]; states: R
 						}}
 					>
 						<Box>
-							<Box component={Link} to={supplierPath(supplier)} onClick={(e) => e.stopPropagation()} sx={linkSx}>{supplier}</Box>
+							<Box component={Link} to={paths.supplier(supplier)} onClick={(e) => e.stopPropagation()} sx={linkSx}>{supplier}</Box>
 							<Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
 								{[items.length ? plural(items.length, "riga di fattura", "righe di fattura") : "", gaps.length ? plural(gaps.length, "punto dell'accordo", "punti dell'accordo") : ""].filter(Boolean).join(" · ")}
 							</Typography>
@@ -99,7 +101,7 @@ function Overview({ groups, states, linkToDetail }: { groups: Group[]; states: R
 						<Typography sx={{ fontWeight: 700, textAlign: { md: "right" }, ...num }}>{total ? eur(total) : "–"}</Typography>
 						<Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
 							{support > 0 && <Chip size="small" color="info" label="Supporto chiesto" />}
-							{talking > 0 && <Chip size="small" color={ITEM_STATUS.in_discussione.tone} label="In discussione" />}
+							{talking > 0 && <Chip size="small" color={ITEM_STATUS.in_discussion.tone} label="In discussione" />}
 							{!support && !talking && <Chip size="small" variant="outlined" color="warning" label="Aperto" />}
 						</Box>
 					</Box>
@@ -111,13 +113,14 @@ function Overview({ groups, states, linkToDetail }: { groups: Group[]; states: R
 
 /** Le schede complete, fornitore per fornitore: per approfondire e decidere. */
 function Details({ groups, states }: { groups: Group[]; states: Record<string, AgreementItemState> }) {
+	const paths = usePaths();
 	return (
 		<Box sx={{ display: "grid", gap: 3 }}>
 			{groups.map(({ supplier, items, gaps, total }) => (
 				<Box key={supplier} id={anchorOf(supplier)} sx={{ scrollMarginTop: 72 }}>
 					<Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 1, mb: 1, pb: 0.5, borderBottom: 1, borderColor: "divider" }}>
 						<Typography variant="h2" component="h3" sx={{ fontSize: 18 }}>
-							<Box component={Link} to={supplierPath(supplier)} sx={linkSx}>{supplier}</Box>
+							<Box component={Link} to={paths.supplier(supplier)} sx={linkSx}>{supplier}</Box>
 						</Typography>
 						<Typography variant="body2" color="text.secondary">
 							{[items.length ? plural(items.length, "riga di fattura", "righe di fattura") : "", gaps.length ? plural(gaps.length, "punto dell'accordo", "punti dell'accordo") : "", total ? `${eur(total)} da chiarire` : ""].filter(Boolean).join(" · ")}
@@ -136,6 +139,7 @@ function Details({ groups, states }: { groups: Group[]; states: Record<string, A
 }
 
 function MonthTiles({ v, open, openEur, support }: { v: MonthView; open: number; openEur: number; support: number }) {
+	const paths = usePaths();
 	const s = v.suppliers;
 	const arrived = s.filter((x) => x.invoiced !== null).length;
 	const ok = s.filter((x) => x.outcome === "ok").length;
@@ -145,8 +149,8 @@ function MonthTiles({ v, open, openEur, support }: { v: MonthView; open: number;
 			<Tile strong={open > 0} label="Da decidere" value={String(open)} sub={openEur ? `${eur(openEur)} in fattura da chiarire` : "niente in fattura da chiarire"} />
 			<Tile strong={toConfirm > 0} label="Costi da confermare" value={String(toConfirm)} sub="fatture che tornano o già decise" />
 			<Tile label="Supporto chiesto" value={String(support)} sub="righe in mano alla gestione operativa" />
-			<Tile label="Fatture arrivate" value={`${arrived}/${s.length}`} sub={`di ${monthName(v.month)}`} to="/supplier-invoices/month" />
-			<Tile label="Tornano al primo colpo" value={`${ok}/${arrived}`} sub="fattura uguale al previsto" to="/supplier-invoices/month" />
+			<Tile label="Fatture arrivate" value={`${arrived}/${s.length}`} sub={`di ${monthName(v.month)}`} to={paths.page("month")} />
+			<Tile label="Tornano al primo colpo" value={`${ok}/${arrived}`} sub="fattura uguale al previsto" to={paths.page("month")} />
 		</Tiles>
 	);
 }
@@ -173,17 +177,22 @@ function Rows({ cols, head, rows }: { cols: string; head: string[]; rows: { key:
 	);
 }
 
-const SupplierLink = ({ name }: { name: string }) => <Box component={Link} to={supplierPath(name)} sx={linkSx}>{name}</Box>;
+function SupplierLink({ name }: { name: string }) {
+	const paths = usePaths();
+	return <Box component={Link} to={paths.supplier(name)} sx={linkSx}>{name}</Box>;
+}
 
 export function TodoPage() {
 	const [role, setRole] = useRole();
-	const { view } = useMonth();
+	const paths = usePaths();
+	const { months, view } = useMonth();
 	const queue = useGetQueueQuery(true);
 	const agreements = useGetAgreementsQuery();
 
 	if (queue.isLoading || agreements.isLoading || view.isLoading) return <CircularProgress />;
+	if ([months, view, queue, agreements].some(failed)) return <Alert severity="error">Impossibile caricare i dati: riprova o ricarica la pagina.</Alert>;
 	const open = (queue.data ?? []).filter((q) => OPEN_VERDICTS.includes(q.verdict));
-	const cs = open.filter((q) => q.owner === "CS");
+	const cs = open.filter((q) => q.owner === "operations");
 	const states = agreements.data?.states ?? {};
 	const gaps = (agreements.data?.suppliers ?? []).flatMap((a) => a.gaps.filter((g) => isOpenGap(g, states)).map((g) => ({ g, supplier: a.supplier })));
 	const groups = groupBySupplier(open, gaps);
@@ -198,17 +207,17 @@ export function TodoPage() {
 	const expectedOnly = by("expected_only");
 	const missing = by("no_invoice");
 	const arrivedN = v?.suppliers.filter((s) => s.invoiced !== null).length ?? 0;
-	const count: Record<Role, number> = { responsabile: toDecide + toConfirm.length, cs: cs.length, amministrazione: 0, referente: confirmed.length };
+	const count: Record<Role, number> = { supplier_owner: toDecide + toConfirm.length, operations: cs.length, administration: 0, referent: confirmed.length };
 
 	const respParts = [
 		toDecide ? `${plural(toDecide, "cosa da decidere", "cose da decidere")} su ${plural(groups.length, "fornitore", "fornitori")}${openEur ? ` (${eur(openEur)} in fattura da chiarire)` : ""}` : "",
 		toConfirm.length ? plural(toConfirm.length, "costo da confermare", "costi da confermare") : "",
 	].filter(Boolean);
 	const headline: Record<Role, string> = {
-		responsabile: respParts.length ? capitalize(respParts.join(" e ")) + "." : "Niente da decidere né da confermare.",
-		cs: cs.length ? `${plural(cs.length, "richiesta di supporto", "richieste di supporto")} dal responsabile fornitori.` : "Nessuna richiesta di supporto aperta.",
-		amministrazione: v ? `${plural(loaded.length, "costo inserito", "costi inseriti")} nel backadmin, ${confirmed.length} confermati da inserire, ${plural(missing.length, "fattura", "fatture")} in arrivo.` : "",
-		referente: v
+		supplier_owner: respParts.length ? capitalize(respParts.join(" e ")) + "." : "Niente da decidere né da confermare.",
+		operations: cs.length ? `${plural(cs.length, "richiesta di supporto", "richieste di supporto")} dal responsabile fornitori.` : "Nessuna richiesta di supporto aperta.",
+		administration: v ? `${plural(loaded.length, "costo inserito", "costi inseriti")} nel backadmin, ${confirmed.length} confermati da inserire, ${plural(missing.length, "fattura", "fatture")} in arrivo.` : "",
+		referent: v
 			? confirmed.length ? `${plural(confirmed.length, "costo confermato", "costi confermati")} da inserire nel backadmin.` : `${capitalize(monthName(v.month))}: nessun costo confermato da inserire.`
 			: "",
 	};
@@ -225,7 +234,7 @@ export function TodoPage() {
 			{!v && <Alert severity="info">Non è ancora stato caricato nessun mese.</Alert>}
 			{v && <Typography sx={{ fontSize: 22, fontWeight: 700, mb: 1.5 }}>{headline[role]}</Typography>}
 
-			{role === "responsabile" && (
+			{role === "supplier_owner" && (
 				<>
 					{v && <MonthTiles v={v} open={toDecide} openEur={openEur} support={cs.length} />}
 					{groups.length > 0 && (
@@ -256,13 +265,13 @@ export function TodoPage() {
 				</>
 			)}
 
-			{role === "cs" && (
+			{role === "operations" && (
 				<Section title="Richieste di supporto" help="Verifiche per cui il responsabile fornitori ha chiesto aiuto: di solito una consegna da controllare (note, chat, farmacia). Si scrive cosa si è trovato e si sceglie il verdetto, oppure si riporta la riga al responsabile.">
 					{csGroups.length ? <Details groups={csGroups} states={states} /> : <QueueCards items={[]} empty="Nessuna richiesta di supporto aperta." />}
 				</Section>
 			)}
 
-			{role === "amministrazione" && v && (
+			{role === "administration" && v && (
 				<>
 					<Tiles n={4}>
 						<Tile label="Inseriti nel backadmin" value={`${loaded.length}/${v.suppliers.length}`} sub={eur(loaded.reduce((a, s) => a + (s.cost?.amount ?? 0), 0))} />
@@ -286,7 +295,7 @@ export function TodoPage() {
 				</>
 			)}
 
-			{role === "referente" && v && (
+			{role === "referent" && v && (
 				<>
 					<Section title={`Da inserire nel backadmin (${confirmed.length})`} help="Costi confermati dal responsabile fornitori. Dopo averli inseriti e salvati nel backadmin, si segnano qui come inseriti.">
 						<Rows
@@ -294,13 +303,13 @@ export function TodoPage() {
 							head={["Fornitore", "Fattura", "€ Costo confermato", ""]}
 							rows={confirmed.map((s) => ({
 								key: s.supplier,
-								cells: [<SupplierLink name={s.supplier} />, invoiceLabel(s), <b>{eur(s.cost?.amount)}</b>, <CostState month={v.month} s={s} canConfirm={false} />],
+								cells: [<SupplierLink name={s.supplier} />, invoiceLabel(s), <b>{eur(s.cost?.amount)}</b>, <CostStatus month={v.month} s={s} canConfirm={false} />],
 							}))}
 						/>
 					</Section>
 					<Tiles n={4}>
-						<Tile label="Fatture arrivate" value={`${arrivedN}/${v.suppliers.length}`} sub={`di ${monthName(v.month)}`} to="/supplier-invoices/month" />
-						<Tile label="Tornano al primo colpo" value={`${v.suppliers.filter((s) => s.outcome === "ok").length}/${arrivedN}`} sub="fattura uguale al previsto" to="/supplier-invoices/month" />
+						<Tile label="Fatture arrivate" value={`${arrivedN}/${v.suppliers.length}`} sub={`di ${monthName(v.month)}`} to={paths.page("month")} />
+						<Tile label="Tornano al primo colpo" value={`${v.suppliers.filter((s) => s.outcome === "ok").length}/${arrivedN}`} sub="fattura uguale al previsto" to={paths.page("month")} />
 						<Tile label="Inseriti nel backadmin" value={`${loaded.length}/${v.suppliers.length}`} sub="fornitori chiusi per il mese" />
 						<Tile label="Responsabile fornitori" value={String(toDecide - cs.length + toConfirm.length)} sub={`${toDecide - cs.length} da decidere, ${toConfirm.length} costi da confermare`} />
 					</Tiles>
@@ -320,6 +329,7 @@ export function TodoPage() {
 
 /** Quanti fornitori in ogni stato del costo, con i nomi. */
 function SupplierStates({ v }: { v: MonthView }) {
+	const paths = usePaths();
 	const order = ["expected_only", "to_confirm", "confirmed", "loaded", "no_invoice"] as const;
 	return (
 		<Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(5, 1fr)" }, gap: 1.5 }}>
@@ -332,7 +342,7 @@ function SupplierStates({ v }: { v: MonthView }) {
 							<Typography sx={{ fontWeight: 700, ...num }}>{list.length}</Typography>
 						</Box>
 						<Typography variant="body2" color="text.secondary">
-							{list.length ? list.map((s, i) => <span key={s.supplier}>{i ? ", " : ""}<Box component={Link} to={supplierPath(s.supplier)} sx={{ ...linkSx, fontWeight: 400 }}>{s.supplier}</Box></span>) : "Nessuno."}
+							{list.length ? list.map((s, i) => <span key={s.supplier}>{i ? ", " : ""}<Box component={Link} to={paths.supplier(s.supplier)} sx={{ ...linkSx, fontWeight: 400 }}>{s.supplier}</Box></span>) : "Nessuno."}
 						</Typography>
 					</Paper>
 				);
